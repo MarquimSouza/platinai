@@ -38,17 +38,25 @@ export default function Home() {
 
   if (!session) {
     const wordmark = theme === "dark" ? "/logo_black.png" : "/logo_white.png";
+    const watermark = theme === "dark" ? "/logo_app_white.png" : "/logo_app.png";
     const bgClass = theme === "dark" ? "bg-black" : "bg-white";
 
     return (
       <main
-        className={`min-h-screen w-full flex flex-col items-center justify-center gap-8 px-6 ${bgClass}`}
+        className={`relative min-h-screen w-full flex flex-col items-center justify-center gap-8 px-6 overflow-hidden ${bgClass}`}
       >
         <div className="absolute top-4 right-4 z-10">
           <ThemeToggle />
         </div>
 
-        <div className="flex flex-col items-center gap-8 w-full max-w-md">
+        <img
+          src={watermark}
+          alt=""
+          aria-hidden="true"
+          className="absolute w-[800px] h-[800px] object-contain opacity-[0.04] pointer-events-none select-none"
+        />
+
+        <div className="relative z-10 flex flex-col items-center gap-8 w-full max-w-md">
           <div className="text-center w-full">
             <img
               src={wordmark}
@@ -74,7 +82,7 @@ export default function Home() {
     <main className="min-h-screen px-6 py-10 max-w-5xl mx-auto">
       <header className="flex items-center justify-between mb-8">
         <div>
-                    <img
+          <img
             src={theme === "dark" ? "/logo_black.png" : "/logo_white.png"}
             alt="Platinai"
             className="w-48 h-auto"
