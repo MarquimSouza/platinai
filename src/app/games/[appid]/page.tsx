@@ -4,9 +4,11 @@ import { useParams } from "next/navigation"
 import Link from "next/link"
 import { achievementGuides } from "@/data/guides"
 import { getRarityTier } from "@/lib/rarity"
+import { useLanguage } from "@/app/language-provider"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { LanguageToggle } from "@/components/LanguageToggle"
 
-type GuideData = { text: string; videoUrl: string | null }
+type GuideData = { pt: string; en: string | null; videoUrl: string | null }
 
 type Achievement = {
   apiname: string
@@ -27,6 +29,7 @@ type AchievementsResponse = {
 export default function GameAchievementsPage() {
   const params = useParams()
   const appid = params.appid as string
+  const { language, t } = useLanguage()
   const [data, setData] = useState<AchievementsResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -39,9 +42,9 @@ export default function GameAchievementsPage() {
   const [search, setSearch] = useState("")
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
 
-  useEffect(() => {
+    useEffect(() => {
     setLoading(true)
-    fetch(`/api/steam/achievements/${appid}`)
+    fetch(`/api/steam/achievements/${appid}?lang=${language}`)
       .then(async (res) => {
         const json = await res.json()
         if (!res.ok) {
@@ -56,7 +59,7 @@ export default function GameAchievementsPage() {
       .then((res) => res.json())
       .then((json) => setSavedGuides(json))
       .catch(() => setSavedGuides({}))
-  }, [appid])
+  }, [appid, language])
 
   async function handleGenerateGuide(a: Achievement) {
     setGenerating((prev) => ({ ...prev, [a.apiname]: true }))
@@ -83,7 +86,7 @@ export default function GameAchievementsPage() {
 
       setDynamicGuides((prev) => ({
         ...prev,
-        [a.apiname]: { text: json.guideText, videoUrl: json.videoUrl },
+        [a.apiname]: { pt: json.guideTextPt, en: json.guideTextEn, videoUrl: json.videoUrl },
       }))
     } catch (err: any) {
       setGenerateErrors((prev) => ({ ...prev, [a.apiname]: err.message }))
@@ -113,7 +116,7 @@ export default function GameAchievementsPage() {
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <p className="text-[var(--text-secondary)]">Carregando conquistas...</p>
+        <p className="text-[var(--text-secondary)]">{t.loadingAchievements}</p>
       </main>
     )
   }
@@ -122,9 +125,11 @@ export default function GameAchievementsPage() {
     return (
       <main className="min-h-screen px-6 py-10 max-w-3xl mx-auto">
         <Link href="/" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-          ← Voltar à biblioteca
+          {t.backToLibrary}
         </Link>
-        <p className="mt-6 text-red-400">Erro: {error}</p>
+        <p className="mt-6 text-red-400">
+          {t.error} {error}
+        </p>
       </main>
     )
   }
@@ -142,9 +147,12 @@ export default function GameAchievementsPage() {
             href="/"
             className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors inline-flex items-center gap-1"
           >
-            ← Voltar à biblioteca
+            {t.backToLibrary}
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <ThemeToggle />
+          </div>
         </div>
       </div>
 
@@ -165,7 +173,7 @@ export default function GameAchievementsPage() {
         <div className="flex items-center gap-3 mb-6">
           <input
             type="text"
-            placeholder="Buscar conquista..."
+            placeholder={t.searchAchievement}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--gold)]"
@@ -174,14 +182,14 @@ export default function GameAchievementsPage() {
             <button
               onClick={() => setViewMode("list")}
               className={`px-3 py-2 text-sm ${viewMode === "list" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
-              aria-label="Ver em lista"
+              aria-label="List view"
             >
               ☰
             </button>
             <button
               onClick={() => setViewMode("grid")}
               className={`px-3 py-2 text-sm ${viewMode === "grid" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
-              aria-label="Ver em grade"
+              aria-label="Grid view"
             >
               ▦
             </button>
@@ -189,9 +197,7 @@ export default function GameAchievementsPage() {
         </div>
 
         {visibleAchievements.length === 0 && (
-          <p className="text-[var(--text-secondary)] text-sm">
-            Nenhuma conquista encontrada para "{search}".
-          </p>
+          <p className="text-[var(--text-secondary)] text-sm">{t.noAchievementsFound(search)}</p>
         )}
 
         <ul
@@ -204,9 +210,13 @@ export default function GameAchievementsPage() {
           {visibleAchievements.map((a) => {
             const staticGuideText = staticGuides[a.apiname]
             const isStatic = !!staticGuideText
-            const guide: GuideData | undefined = isStatic
-              ? { text: staticGuideText, videoUrl: null }
+            const guideData: GuideData | undefined = isStatic
+              ? { pt: staticGuideText, en: null, videoUrl: null }
               : savedGuides[a.apiname] ?? dynamicGuides[a.apiname]
+
+            // Se não tiver versão em inglês salva (guia antigo), cai para português como fallback
+            const guideText =
+              guideData && (language === "en" ? guideData.en ?? guideData.pt : guideData.pt)
 
             const isGenerating = generating[a.apiname]
             const generateError = generateErrors[a.apiname]
@@ -235,54 +245,42 @@ export default function GameAchievementsPage() {
                       className="text-xs font-mono whitespace-nowrap px-2 py-1 rounded"
                       style={{ color: rarity.color, backgroundColor: `${rarity.color}1a` }}
                     >
-                      {rarity.label} · {a.globalPercent.toFixed(1)}%
+                      {t.rarity[rarity.key]} · {a.globalPercent.toFixed(1)}%
                     </span>
                   )}
                 </div>
 
-                {!a.unlocked && guide && (
+                {!a.unlocked && guideText && (
                   <div className="mt-3 p-3 bg-[var(--bg-base)] rounded-md text-sm leading-relaxed">
-                    💡 <strong>Dica:</strong> {guide.text}
-                    {guide.videoUrl && (
+                    💡 <strong>{t.hintLabel}</strong> {guideText}
+                    {guideData?.videoUrl && (
                       <div className="mt-2">
-                        <a 
-                          href={guide.videoUrl}
+                        <a
+                          href={guideData.videoUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-[var(--gold)] hover:underline text-sm inline-flex items-center gap-1"
                         >
-                          ▶ Ver vídeo no YouTube
+                          {t.watchOnYoutube}
                         </a>
                       </div>
                     )}
-
-                    {/* Botão de regenerar comentado — era só para testes iniciais
-                    {!isStatic && (
-                      <div className="mt-2">
-                        <button
-                          onClick={() => handleRegenerateGuide(a)}
-                          disabled={isGenerating}
-                          className="text-xs text-[var(--text-secondary)] hover:text-[var(--gold)] disabled:opacity-50 transition-colors"
-                        >
-                          {isGenerating ? "Regenerando..." : "🔄 Regenerar dica"}
-                        </button>
-                      </div>
-                    )}
-                    */}
                   </div>
                 )}
 
-                {!a.unlocked && !guide && (
+                {!a.unlocked && !guideText && (
                   <div className="mt-3">
                     <button
                       onClick={() => handleGenerateGuide(a)}
                       disabled={isGenerating}
                       className="text-sm bg-[var(--bg-surface-hover)] hover:bg-[#2a2e38] disabled:opacity-50 transition-colors px-3 py-1.5 rounded-md"
                     >
-                      {isGenerating ? "Gerando dica com IA..." : "🔍 Gerar dica"}
+                      {isGenerating ? t.generatingHint : t.generateHint}
                     </button>
                     {generateError && (
-                      <p className="text-red-400 text-xs mt-1.5">Erro: {generateError}</p>
+                      <p className="text-red-400 text-xs mt-1.5">
+                        {t.error} {generateError}
+                      </p>
                     )}
                   </div>
                 )}

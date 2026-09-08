@@ -17,9 +17,12 @@ export async function GET(
   const apiKey = process.env.STEAM_SECRET
   const { appid } = await params
 
+  const { searchParams } = new URL(req.url)
+  const lang = searchParams.get("lang") === "en" ? "english" : "portuguese"
+
   const [playerRes, globalRes] = await Promise.all([
     fetch(
-      `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?appid=${appid}&key=${apiKey}&steamid=${steamId}&l=portuguese`
+      `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?appid=${appid}&key=${apiKey}&steamid=${steamId}&l=${lang}`
     ),
     fetch(
       `https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid=${appid}&format=json`
@@ -28,8 +31,6 @@ export async function GET(
 
   if (!playerRes.ok) {
     const bodyText = await playerRes.text()
-    console.log("STEAM ERROR STATUS:", playerRes.status)
-    console.log("STEAM ERROR BODY:", bodyText)
     return NextResponse.json(
       { error: "Erro ao buscar conquistas do jogador", debug: bodyText },
       { status: 400 }

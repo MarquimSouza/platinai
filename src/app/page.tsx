@@ -1,51 +1,55 @@
-"use client";
-import { signIn, signOut, useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useTheme } from "./theme-provider";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { GameCover } from "@/components/GameCover";
+"use client"
+import { signIn, signOut, useSession } from "next-auth/react"
+import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import { useTheme } from "./theme-provider"
+import { useLanguage } from "./language-provider"
+import { ThemeToggle } from "@/components/ThemeToggle"
+import { LanguageToggle } from "@/components/LanguageToggle"
+import { GameCover } from "@/components/GameCover"
 
 type Game = {
-  appid: number;
-  name: string;
-  playtime_forever: number;
-};
+  appid: number
+  name: string
+  playtime_forever: number
+}
 
 export default function Home() {
-  const { data: session } = useSession();
-  const { theme } = useTheme();
-  const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const { data: session } = useSession()
+  const { theme } = useTheme()
+  const { t } = useLanguage()
+  const [games, setGames] = useState<Game[]>([])
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState("")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
 
   useEffect(() => {
     if (session) {
-      setLoading(true);
+      setLoading(true)
       fetch("/api/steam/games")
         .then((res) => res.json())
         .then((data) => setGames(data))
-        .finally(() => setLoading(false));
+        .finally(() => setLoading(false))
     }
-  }, [session]);
+  }, [session])
 
   const visibleGames = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return games;
-    return games.filter((g) => g.name.toLowerCase().includes(query));
-  }, [games, search]);
+    const query = search.trim().toLowerCase()
+    if (!query) return games
+    return games.filter((g) => g.name.toLowerCase().includes(query))
+  }, [games, search])
 
   if (!session) {
-    const wordmark = theme === "dark" ? "/logo_black.png" : "/logo_white.png";
-    const watermark = theme === "dark" ? "/logo_app_white.png" : "/logo_app.png";
-    const bgClass = theme === "dark" ? "bg-black" : "bg-white";
+    const wordmark = theme === "dark" ? "/logo_black.png" : "/logo_white.png"
+    const watermark = theme === "dark" ? "/logo_app_white.png" : "/logo_app.png"
+    const bgClass = theme === "dark" ? "bg-black" : "bg-white"
 
     return (
       <main
         className={`relative min-h-screen w-full flex flex-col items-center justify-center gap-8 px-6 overflow-hidden ${bgClass}`}
       >
-        <div className="absolute top-4 right-4 z-10">
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+          <LanguageToggle />
           <ThemeToggle />
         </div>
 
@@ -63,19 +67,17 @@ export default function Home() {
               alt="Platinai"
               className="w-full max-w-[360px] h-auto mx-auto"
             />
-            <p className="mt-4 text-base text-[var(--text-secondary)]">
-              Veja o que falta pra platinar seus jogos, e como fazer isso.
-            </p>
+            <p className="mt-4 text-base text-[var(--text-secondary)]">{t.tagline}</p>
           </div>
           <button
             onClick={() => signIn("steam")}
             className="bg-[#1b2838] hover:bg-[#2a3f5a] transition-colors text-white px-8 py-4 rounded-lg font-medium text-lg"
           >
-            Entrar com Steam
+            {t.signIn}
           </button>
         </div>
       </main>
-    );
+    )
   }
 
   return (
@@ -88,33 +90,34 @@ export default function Home() {
             className="w-48 h-auto"
           />
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Logado como {session.user?.name}
+            {t.loggedAs(session.user?.name ?? "")}
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <LanguageToggle />
           <ThemeToggle />
           <button
             onClick={() => signOut()}
             className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
-            Sair
+            {t.signOut}
           </button>
         </div>
       </header>
 
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-          Sua biblioteca
+          {t.library}
         </h2>
         <span className="text-xs text-[var(--text-secondary)] font-mono">
-          {visibleGames.length} jogos
+          {visibleGames.length} {t.games}
         </span>
       </div>
 
       <div className="flex items-center gap-3 mb-6">
         <input
           type="text"
-          placeholder="Buscar jogo..."
+          placeholder={t.searchGame}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--gold)]"
@@ -123,28 +126,24 @@ export default function Home() {
           <button
             onClick={() => setViewMode("grid")}
             className={`px-3 py-2 text-sm ${viewMode === "grid" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
-            aria-label="Ver em grade"
+            aria-label="Grid view"
           >
             ▦
           </button>
           <button
             onClick={() => setViewMode("list")}
             className={`px-3 py-2 text-sm ${viewMode === "list" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
-            aria-label="Ver em lista"
+            aria-label="List view"
           >
             ☰
           </button>
         </div>
       </div>
 
-      {loading && (
-        <p className="text-[var(--text-secondary)]">Carregando jogos...</p>
-      )}
+      {loading && <p className="text-[var(--text-secondary)]">{t.loadingGames}</p>}
 
       {!loading && visibleGames.length === 0 && (
-        <p className="text-[var(--text-secondary)] text-sm">
-          Nenhum jogo encontrado para "{search}".
-        </p>
+        <p className="text-[var(--text-secondary)] text-sm">{t.noGamesFound(search)}</p>
       )}
 
       {viewMode === "grid" ? (
@@ -180,5 +179,5 @@ export default function Home() {
         </ul>
       )}
     </main>
-  );
+  )
 }

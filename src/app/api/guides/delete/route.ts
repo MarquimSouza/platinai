@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabaseAdmin } from "@/lib/supabase"
 import type { NextRequest } from "next/server"
 
 export async function POST(req: NextRequest) {
@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
   }
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("achievement_guides")
     .delete()
     .eq("appid", String(appid))

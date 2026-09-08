@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 import { generateAchievementGuide } from "@/lib/gemini"
 import { searchAchievementGuide, searchYoutubeVideo } from "@/lib/tavily"
 import type { NextRequest } from "next/server"
@@ -12,16 +12,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
   }
 
+  const ip = req.headers.get("x-forwarded-for") ?? "unknown"
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+
+  const { count } = await supabaseAdmin
+    .from("generation_log")
+    .select("*", { count: "exact", head: true })
+    .eq("ip", ip)
+    .gte("created_at", oneHourAgo)
+
+  if ((count ?? 0) >= 10) {
+    return NextResponse.json(
+      { error: "Muitas gerações recentes. Tente novamente mais tarde." },
+      { status: 429 }
+    )
+  }
+
   const { data: existing } = await supabase
     .from("achievement_guides")
-    .select("guide_text, video_url")
+    .select("guide_text, guide_text_en, video_url")
     .eq("appid", String(appid))
     .eq("apiname", apiname)
     .maybeSingle()
 
   if (existing) {
     return NextResponse.json({
-      guideText: existing.guide_text,
+      guideTextPt: existing.guide_text,
+      guideTextEn: existing.guide_text_en,
       videoUrl: existing.video_url,
       cached: true,
     })
@@ -34,35 +51,33 @@ export async function POST(req: NextRequest) {
       ? `how to ${achievementName}: ${description} - ${gameName} achievement guide`
       : `how to unlock ${achievementName} - ${gameName} achievement guide`
 
-    // Query de vídeo mais simples e direta — funciona melhor pra achar resultado no YouTube
     const videoQuery = `${gameName} ${achievementName} achievement`
-
-    console.log("Query de vídeo:", videoQuery)
 
     const [searchContext, videoUrl] = await Promise.all([
       searchAchievementGuide(searchQuery),
       searchYoutubeVideo(videoQuery),
     ])
 
-    console.log("Vídeo encontrado:", videoUrl)
-
-    const { text } = await generateAchievementGuide({
+    const { pt, en } = await generateAchievementGuide({
       gameName,
       achievementName,
       achievementDescription: description,
       searchContext,
     })
 
-    await supabase.from("achievement_guides").insert({
+    await supabaseAdmin.from("achievement_guides").insert({
       appid: String(appid),
       apiname,
       game_name: gameName,
       achievement_name: achievementName,
-      guide_text: text,
+      guide_text: pt,
+      guide_text_en: en,
       video_url: videoUrl,
     })
 
-    return NextResponse.json({ guideText: text, videoUrl, cached: false })
+    await supabaseAdmin.from("generation_log").insert({ ip })
+
+    return NextResponse.json({ guideTextPt: pt, guideTextEn: en, videoUrl, cached: false })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

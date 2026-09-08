@@ -1,23 +1,25 @@
+export type RarityKey = "common" | "uncommon" | "rare" | "epic" | "legendary" | "unknown"
+
 export type RarityTier = {
-  label: string
+  key: RarityKey
   color: string
 }
 
 export function getRarityTier(globalPercent: number | null): RarityTier {
   if (globalPercent === null) {
-    return { label: "Sem dados", color: "var(--text-secondary)" }
+    return { key: "unknown", color: "var(--text-secondary)" }
   }
   if (globalPercent < 1) {
-    return { label: "Lendária", color: "var(--rarity-legendary)" }
+    return { key: "legendary", color: "var(--rarity-legendary)" }
   }
   if (globalPercent < 5) {
-    return { label: "Épica", color: "var(--rarity-epic)" }
+    return { key: "epic", color: "var(--rarity-epic)" }
   }
   if (globalPercent < 15) {
-    return { label: "Rara", color: "var(--rarity-rare)" }
+    return { key: "rare", color: "var(--rarity-rare)" }
   }
   if (globalPercent < 40) {
-    return { label: "Incomum", color: "var(--rarity-uncommon)" }
+    return { key: "uncommon", color: "var(--rarity-uncommon)" }
   }
-  return { label: "Comum", color: "var(--rarity-common)" }
+  return { key: "common", color: "var(--rarity-common)" }
 }
