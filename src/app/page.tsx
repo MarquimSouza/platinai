@@ -71,8 +71,8 @@ export default function Home() {
           </div>
           <button
             onClick={() => signIn("steam")}
-            className="bg-[#1b2838] hover:bg-[#2a3f5a] transition-colors text-white px-8 py-4 rounded-lg font-medium text-lg"
-          >
+            className="bg-[#1b2838] hover:bg-[#2a3f5a] transition-colors text-white px-8 py-4 rounded-lg font-medium text-lg cursor-pointer"
+            >
             {t.signIn}
           </button>
         </div>
@@ -98,8 +98,8 @@ export default function Home() {
           <ThemeToggle />
           <button
             onClick={() => signOut()}
-            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-          >
+            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+            >
             {t.signOut}
           </button>
         </div>
@@ -123,16 +123,16 @@ export default function Home() {
           className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--gold)]"
         />
         <div className="flex bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
-          <button
+                    <button
             onClick={() => setViewMode("grid")}
-            className={`px-3 py-2 text-sm ${viewMode === "grid" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
+            className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "grid" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
             aria-label="Grid view"
           >
             ▦
           </button>
           <button
             onClick={() => setViewMode("list")}
-            className={`px-3 py-2 text-sm ${viewMode === "list" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
+            className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "list" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
             aria-label="List view"
           >
             ☰
@@ -152,8 +152,8 @@ export default function Home() {
             <Link
               key={game.appid}
               href={`/games/${game.appid}?name=${encodeURIComponent(game.name)}`}
-              className="group bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] transition-colors rounded-lg overflow-hidden border border-[var(--border-subtle)] flex flex-col"
-            >
+              className="group bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] transition-colors rounded-lg overflow-hidden border border-[var(--border-subtle)] flex flex-col cursor-pointer"
+              >
               <div className="aspect-[2/3] bg-[var(--bg-base)] overflow-hidden">
                 <GameCover appid={game.appid} name={game.name} />
               </div>
@@ -169,8 +169,8 @@ export default function Home() {
             <li key={game.appid}>
               <Link
                 href={`/games/${game.appid}?name=${encodeURIComponent(game.name)}`}
-                className="flex items-center justify-between bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] transition-colors rounded-lg px-4 py-3 border border-[var(--border-subtle)]"
-              >
+                className="flex items-center justify-between bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] transition-colors rounded-lg px-4 py-3 border border-[var(--border-subtle)] cursor-pointer"
+                >
                 <span className="font-medium">{game.name}</span>
                 <span className="text-[var(--text-secondary)]">→</span>
               </Link>

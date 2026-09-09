@@ -220,22 +220,22 @@ export default function GameAchievementsPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--gold)]"
           />
-          <div className="flex bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode("list")}
-              className={`px-3 py-2 text-sm ${viewMode === "list" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
-              aria-label="List view"
-            >
-              ☰
-            </button>
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`px-3 py-2 text-sm ${viewMode === "grid" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
-              aria-label="Grid view"
-            >
-              ▦
-            </button>
-          </div>
+                  <div className="flex bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+          <button
+            onClick={() => setViewMode("grid")}
+            className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "grid" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
+            aria-label="Grid view"
+          >
+            ▦
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "list" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
+            aria-label="List view"
+          >
+            ☰
+          </button>
+        </div>
         </div>
 
         {visibleAchievements.length === 0 && (
@@ -314,8 +314,8 @@ export default function GameAchievementsPage() {
                     <button
                       onClick={() => handleGenerateGuide(a)}
                       disabled={isGenerating}
-                      className="text-sm bg-[var(--bg-surface-hover)] hover:bg-[#2a2e38] disabled:opacity-50 transition-colors px-3 py-1.5 rounded-md"
-                    >
+                      className="text-sm bg-[var(--bg-surface-hover)] hover:bg-[#2a2e38] disabled:opacity-50 transition-colors px-3 py-1.5 rounded-md cursor-pointer disabled:cursor-not-allowed"
+                      >
                       {isGenerating ? t.generatingHint : t.generateHint}
                     </button>
                     {generateError && (

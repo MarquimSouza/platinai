@@ -7,9 +7,8 @@ export function LanguageToggle() {
   return (
     <button
       onClick={toggleLanguage}
-      className="w-10 h-10 flex items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] transition-colors text-xs font-bold"
-      aria-label="Alternar idioma"
-    >
+            className="w-10 h-10 flex items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] transition-colors text-xs font-bold cursor-pointer"
+      >
       {language === "pt" ? "EN" : "PT"}
     </button>
   )
