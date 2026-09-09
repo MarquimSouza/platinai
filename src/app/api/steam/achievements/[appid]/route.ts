@@ -29,27 +29,25 @@ export async function GET(
     ),
   ])
 
-  if (!playerRes.ok) {
-    const bodyText = await playerRes.text()
-    return NextResponse.json(
-      { error: "Erro ao buscar conquistas do jogador", debug: bodyText },
-      { status: 400 }
-    )
-  }
-
+  // A Steam pode devolver o erro "no stats" tanto com status 200 quanto 400,
+  // então lemos o corpo primeiro e SÓ DEPOIS decidimos o que fazer — em vez de
+  // checar playerRes.ok antes de olhar a mensagem.
   const playerData = await playerRes.json()
-  const globalData = await globalRes.json()
 
   if (!playerData.playerstats?.success) {
+    const steamError: string = playerData.playerstats?.error ?? ""
+
+    if (steamError.toLowerCase().includes("no stats")) {
+      return NextResponse.json({ noAchievements: true }, { status: 200 })
+    }
+
     return NextResponse.json(
-      {
-        error:
-          playerData.playerstats?.error ??
-          "Este jogo não tem conquistas ou o perfil não é público",
-      },
+      { error: steamError || "Este jogo não tem conquistas ou o perfil não é público" },
       { status: 400 }
     )
   }
+
+  const globalData = await globalRes.json()
 
   const achievements = playerData.playerstats.achievements ?? []
   const percentages: { name: string; percent: number }[] =

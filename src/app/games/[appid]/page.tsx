@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useMemo, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { achievementGuides } from "@/data/guides"
 import { getRarityTier } from "@/lib/rarity"
@@ -28,9 +28,13 @@ type AchievementsResponse = {
 
 export default function GameAchievementsPage() {
   const params = useParams()
+  const searchParamsUrl = useSearchParams()
   const appid = params.appid as string
+  const nameFromLibrary = searchParamsUrl.get("name")
   const { language, t } = useLanguage()
+
   const [data, setData] = useState<AchievementsResponse | null>(null)
+  const [noAchievements, setNoAchievements] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -42,13 +46,20 @@ export default function GameAchievementsPage() {
   const [search, setSearch] = useState("")
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
 
-    useEffect(() => {
+  useEffect(() => {
     setLoading(true)
+    setNoAchievements(false)
+    setError(null)
+
     fetch(`/api/steam/achievements/${appid}?lang=${language}`)
       .then(async (res) => {
         const json = await res.json()
         if (!res.ok) {
           throw new Error(json.error ?? "Erro desconhecido")
+        }
+        if (json.noAchievements) {
+          setNoAchievements(true)
+          return
         }
         setData(json)
       })
@@ -113,10 +124,27 @@ export default function GameAchievementsPage() {
     return [...pending, ...unlocked]
   }, [data, search])
 
+  const isPlatinum = data !== null && data.total > 0 && data.unlockedCount === data.total
+
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <p className="text-[var(--text-secondary)]">{t.loadingAchievements}</p>
+      </main>
+    )
+  }
+
+  if (noAchievements) {
+    return (
+      <main className="min-h-screen px-6 py-10 max-w-3xl mx-auto">
+        <Link href="/" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+          {t.backToLibrary}
+        </Link>
+        <div className="mt-10 text-center">
+          <h1 className="text-xl font-bold">{nameFromLibrary ?? ""}</h1>
+          <p className="mt-3 text-[var(--text-secondary)]">{t.noAchievementsTitle}</p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">{t.noAchievementsMessage}</p>
+        </div>
       </main>
     )
   }
@@ -157,7 +185,21 @@ export default function GameAchievementsPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-8">
-        <h1 className="text-2xl font-bold">{data.gameName}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">{data.gameName}</h1>
+          {isPlatinum && (
+            <span
+              className="text-sm font-semibold px-3 py-1 rounded-full"
+              style={{
+                color: "var(--rarity-legendary)",
+                backgroundColor: "color-mix(in srgb, var(--rarity-legendary) 15%, transparent)",
+                border: "1px solid var(--rarity-legendary)",
+              }}
+            >
+              {t.platinumBadge}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-3 mt-2 mb-6">
           <div className="flex-1 h-2 bg-[var(--bg-surface)] rounded-full overflow-hidden">
             <div
@@ -214,7 +256,6 @@ export default function GameAchievementsPage() {
               ? { pt: staticGuideText, en: null, videoUrl: null }
               : savedGuides[a.apiname] ?? dynamicGuides[a.apiname]
 
-            // Se não tiver versão em inglês salva (guia antigo), cai para português como fallback
             const guideText =
               guideData && (language === "en" ? guideData.en ?? guideData.pt : guideData.pt)
 

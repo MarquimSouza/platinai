@@ -2,6 +2,9 @@ export type Language = "pt" | "en"
 
 export const translations = {
   pt: {
+    noAchievementsTitle: "Este jogo não tem conquistas",
+    noAchievementsMessage: "Alguns jogos simplesmente não implementam o sistema de conquistas da Steam — não é um erro, é assim mesmo.",
+    platinumBadge: "🏆 Platinado!",
     library: "Sua biblioteca",
     searchGame: "Buscar jogo...",
     games: "jogos",
@@ -31,6 +34,9 @@ export const translations = {
     ofPlayersUnlocked: "dos jogadores desbloquearam",
   },
   en: {
+    noAchievementsTitle: "This game has no achievements",
+    noAchievementsMessage: "Some games simply don't implement Steam's achievement system — this isn't an error, that's just how it is.",
+    platinumBadge: "🏆 Platinum!",
     library: "Your library",
     searchGame: "Search game...",
     games: "games",

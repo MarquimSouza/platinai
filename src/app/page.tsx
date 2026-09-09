@@ -151,7 +151,7 @@ export default function Home() {
           {visibleGames.map((game) => (
             <Link
               key={game.appid}
-              href={`/games/${game.appid}`}
+              href={`/games/${game.appid}?name=${encodeURIComponent(game.name)}`}
               className="group bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] transition-colors rounded-lg overflow-hidden border border-[var(--border-subtle)] flex flex-col"
             >
               <div className="aspect-[2/3] bg-[var(--bg-base)] overflow-hidden">
@@ -168,7 +168,7 @@ export default function Home() {
           {visibleGames.map((game) => (
             <li key={game.appid}>
               <Link
-                href={`/games/${game.appid}`}
+                href={`/games/${game.appid}?name=${encodeURIComponent(game.name)}`}
                 className="flex items-center justify-between bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] transition-colors rounded-lg px-4 py-3 border border-[var(--border-subtle)]"
               >
                 <span className="font-medium">{game.name}</span>
