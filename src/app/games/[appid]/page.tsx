@@ -35,6 +35,7 @@ export default function GameAchievementsPage() {
 
   const [data, setData] = useState<AchievementsResponse | null>(null)
   const [noAchievements, setNoAchievements] = useState(false)
+  const [profilePrivate, setProfilePrivate] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -49,6 +50,7 @@ export default function GameAchievementsPage() {
   useEffect(() => {
     setLoading(true)
     setNoAchievements(false)
+    setProfilePrivate(false)
     setError(null)
 
     fetch(`/api/steam/achievements/${appid}?lang=${language}`)
@@ -59,6 +61,10 @@ export default function GameAchievementsPage() {
         }
         if (json.noAchievements) {
           setNoAchievements(true)
+          return
+        }
+        if (json.profilePrivate) {
+          setProfilePrivate(true)
           return
         }
         setData(json)
@@ -144,6 +150,23 @@ export default function GameAchievementsPage() {
           <h1 className="text-xl font-bold">{nameFromLibrary ?? ""}</h1>
           <p className="mt-3 text-[var(--text-secondary)]">{t.noAchievementsTitle}</p>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">{t.noAchievementsMessage}</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (profilePrivate) {
+    return (
+      <main className="min-h-screen px-6 py-10 max-w-3xl mx-auto">
+        <Link href="/" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+          {t.backToLibrary}
+        </Link>
+        <div className="mt-10 text-center">
+          <h1 className="text-xl font-bold">{nameFromLibrary ?? ""}</h1>
+          <p className="mt-3 text-[var(--text-secondary)]">{t.privateProfileTitle}</p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)] max-w-md mx-auto">
+            {t.privateProfileMessage}
+          </p>
         </div>
       </main>
     )

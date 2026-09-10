@@ -2,6 +2,8 @@ export type Language = "pt" | "en"
 
 export const translations = {
   pt: {
+    privateProfileTitle: "Perfil da Steam está privado",
+    privateProfileMessage: "Para ver as conquistas deste jogo, sua conta Steam precisa ter a opção \"Detalhes do jogo\" configurada como pública. Acesse suas configurações de privacidade na Steam para alterar isso. Isso não afeta a segurança da conta em relação ao Platinai, é apenas para acessar as conquistas que você possui nos jogos.",
     noAchievementsTitle: "Este jogo não tem conquistas",
     noAchievementsMessage: "Alguns jogos simplesmente não implementam o sistema de conquistas da Steam — não é um erro, é assim mesmo.",
     platinumBadge: "🏆 Platinado!",
@@ -34,6 +36,8 @@ export const translations = {
     ofPlayersUnlocked: "dos jogadores desbloquearam",
   },
   en: {
+    privateProfileTitle: "Steam profile is private",
+    privateProfileMessage: "To see this game's achievements, your Steam account needs \"Game details\" set to public. Go to your Steam privacy settings to change this. This does not affect account security regarding Platinai; it is only for accessing the achievements you have earned in the games.",
     noAchievementsTitle: "This game has no achievements",
     noAchievementsMessage: "Some games simply don't implement Steam's achievement system — this isn't an error, that's just how it is.",
     platinumBadge: "🏆 Platinum!",

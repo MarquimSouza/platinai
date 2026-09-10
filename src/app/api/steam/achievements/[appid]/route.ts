@@ -32,13 +32,18 @@ export async function GET(
   // A Steam pode devolver o erro "no stats" tanto com status 200 quanto 400,
   // então lemos o corpo primeiro e SÓ DEPOIS decidimos o que fazer — em vez de
   // checar playerRes.ok antes de olhar a mensagem.
-  const playerData = await playerRes.json()
+    const playerData = await playerRes.json()
 
   if (!playerData.playerstats?.success) {
     const steamError: string = playerData.playerstats?.error ?? ""
+    const errorLower = steamError.toLowerCase()
 
-    if (steamError.toLowerCase().includes("no stats")) {
+    if (errorLower.includes("no stats")) {
       return NextResponse.json({ noAchievements: true }, { status: 200 })
+    }
+
+    if (errorLower.includes("not public") || errorLower.includes("profile is not")) {
+      return NextResponse.json({ profilePrivate: true }, { status: 200 })
     }
 
     return NextResponse.json(
