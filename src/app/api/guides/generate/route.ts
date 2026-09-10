@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     const [searchContext, videoUrl] = await Promise.all([
       searchAchievementGuide(searchQuery),
-      searchYoutubeVideo(videoQuery),
+      searchYoutubeVideo(videoQuery, achievementName),
     ])
 
     const { pt, en } = await generateAchievementGuide({
