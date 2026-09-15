@@ -24,6 +24,8 @@ export const translations = {
     generateHint: "🔍 Gerar dica",
     hintLabel: "Dica:",
     watchOnYoutube: "▶ Ver vídeo no YouTube",
+    showPlayer: "🎬 Assistir aqui",
+    hidePlayer: "✕ Fechar player",
     error: "Erro:",
     rarity: {
       common: "Comum",
@@ -58,6 +60,8 @@ export const translations = {
     generateHint: "🔍 Generate hint",
     hintLabel: "Hint:",
     watchOnYoutube: "▶ Watch on YouTube",
+    showPlayer: "🎬 Watch here",
+    hidePlayer: "✕ Close player",
     error: "Error:",
     rarity: {
       common: "Common",

@@ -26,6 +26,14 @@ type AchievementsResponse = {
   achievements: Achievement[]
 }
 
+function getYoutubeVideoId(url: string): string {
+  try {
+    return new URL(url).searchParams.get("v") ?? ""
+  } catch {
+    return ""
+  }
+}
+
 export default function GameAchievementsPage() {
   const params = useParams()
   const searchParamsUrl = useSearchParams()
@@ -43,6 +51,7 @@ export default function GameAchievementsPage() {
   const [dynamicGuides, setDynamicGuides] = useState<Record<string, GuideData>>({})
   const [generating, setGenerating] = useState<Record<string, boolean>>({})
   const [generateErrors, setGenerateErrors] = useState<Record<string, string>>({})
+  const [expandedVideo, setExpandedVideo] = useState<Record<string, boolean>>({})
 
   const [search, setSearch] = useState("")
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
@@ -319,14 +328,39 @@ export default function GameAchievementsPage() {
                     💡 <strong>{t.hintLabel}</strong> {guideText}
                     {guideData?.videoUrl && (
                       <div className="mt-2">
-                        <a
-                          href={guideData.videoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[var(--gold)] hover:underline text-sm inline-flex items-center gap-1"
-                        >
-                          {t.watchOnYoutube}
-                        </a>
+                        <div className="flex items-center gap-3">
+                          <a
+                            href={guideData.videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[var(--gold)] hover:underline text-sm inline-flex items-center gap-1"
+                          >
+                            {t.watchOnYoutube}
+                          </a>
+                          <button
+                            onClick={() =>
+                              setExpandedVideo((prev) => ({
+                                ...prev,
+                                [a.apiname]: !prev[a.apiname],
+                              }))
+                            }
+                            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm cursor-pointer"
+                          >
+                            {expandedVideo[a.apiname] ? t.hidePlayer : t.showPlayer}
+                          </button>
+                        </div>
+                        {expandedVideo[a.apiname] && (
+                          <div className="mt-2 aspect-video rounded-md overflow-hidden border border-[var(--border-subtle)]">
+                            <iframe
+                              src={`https://www.youtube.com/embed/${getYoutubeVideoId(guideData.videoUrl)}`}
+                              title={a.name}
+                              className="w-full h-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
