@@ -13,19 +13,24 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = req.headers.get("x-forwarded-for") ?? "unknown"
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
 
-  const { count } = await supabaseAdmin
-    .from("generation_log")
-    .select("*", { count: "exact", head: true })
-    .eq("ip", ip)
-    .gte("created_at", oneHourAgo)
+  // Rate limit só em produção — localmente (npm run dev) não existe proxy repassando
+  // o IP real, então todo teste cairia no mesmo balde de "unknown" e travaria o próprio dev.
+  if (process.env.NODE_ENV === "production") {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
 
-  if ((count ?? 0) >= 10) {
-    return NextResponse.json(
-      { error: "Muitas gerações recentes. Tente novamente mais tarde." },
-      { status: 429 }
-    )
+    const { count } = await supabaseAdmin
+      .from("generation_log")
+      .select("*", { count: "exact", head: true })
+      .eq("ip", ip)
+      .gte("created_at", oneHourAgo)
+
+    if ((count ?? 0) >= 10) {
+      return NextResponse.json(
+        { error: "Muitas gerações recentes. Tente novamente mais tarde." },
+        { status: 429 }
+      )
+    }
   }
 
   const { data: existing } = await supabase
