@@ -75,12 +75,26 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const { pt, en } = await generateAchievementGuide({
+    const { pt, en, sufficient } = await generateAchievementGuide({
       gameName,
       achievementName,
       achievementDescription: description,
       searchContext: searchResult.text,
     })
+
+    // Mesmo com texto suficiente em tamanho (filtro do Tavily acima), o próprio Gemini pode achar
+    // o conteúdo genérico/insuficiente para dar passos práticos — trata igual ao caso "sem conteúdo".
+    if (!sufficient) {
+      await supabaseAdmin.from("generation_log").insert({ ip })
+
+      return NextResponse.json({
+        guideTextPt: pt,
+        guideTextEn: en,
+        videoUrl,
+        cached: false,
+        insufficientContent: true,
+      })
+    }
 
     await supabaseAdmin.from("achievement_guides").insert({
       appid: String(appid),
