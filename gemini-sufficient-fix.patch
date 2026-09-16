@@ -1,0 +1,54 @@
+diff --git a/src/lib/gemini.ts b/src/lib/gemini.ts
+index 242a489..4908259 100644
+--- a/src/lib/gemini.ts
++++ b/src/lib/gemini.ts
+@@ -8,6 +8,16 @@ type GuideRequest = {
+ type GuideResult = {
+   pt: string
+   en: string
++  sufficient: boolean
++}
++
++// O Gemini às vezes devolve "false" como string em vez de booleano puro —
++// essa função normaliza os dois formatos. Valor ausente/inesperado assume true
++// (comportamento anterior a essa checagem existir).
++function parseSufficient(value: unknown): boolean {
++  if (typeof value === "boolean") return value
++  if (typeof value === "string") return value.trim().toLowerCase() !== "false"
++  return true
+ }
+ 
+ export async function generateAchievementGuide({
+@@ -29,10 +39,13 @@ Descrição oficial: ${achievementDescription}
+ ${searchContext}
+ --- FIM DO CONTEÚDO ---
+ 
+-Escreva um guia curto e prático (no máximo 5-6 frases, direto ao ponto, com passos práticos) em DUAS versões: uma em português e uma em inglês, com o MESMO conteúdo nas duas, apenas traduzido. Se o conteúdo pesquisado não for suficiente pra responder com confiança, diga isso claramente nas duas versões, em vez de inventar.
++Escreva um guia curto e prático (no máximo 5-6 frases, direto ao ponto, com passos práticos) em DUAS versões: uma em português e uma em inglês, com o MESMO conteúdo nas duas, apenas traduzido.
++
++Além do texto, avalie você mesmo se o conteúdo pesquisado foi suficiente para dar passos práticos e específicos (não apenas título/dados genéricos do jogo). Se não foi suficiente, ainda assim escreva nas duas versões uma frase curta dizendo isso, e marque "sufficient": false.
+ 
+ Responda ESTRITAMENTE em JSON válido, sem markdown, sem \`\`\`, no formato exato:
+-{"pt": "texto em português aqui", "en": "text in english here"}`
++{"pt": "texto em português aqui", "en": "text in english here", "sufficient": true}
++(o campo "sufficient" é um booleano — true ou false SEM aspas, nunca como texto "true"/"false")`
+ 
+   const res = await fetch(
+     `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`,
+@@ -64,12 +77,15 @@ Responda ESTRITAMENTE em JSON válido, sem markdown, sem \`\`\`, no formato exat
+     return {
+       pt: parsed.pt ?? "Não foi possível gerar um guia para esta conquista.",
+       en: parsed.en ?? "Could not generate a guide for this achievement.",
++      // Se o Gemini não mandar o campo por algum motivo, assume true (comportamento anterior à essa mudança)
++      sufficient: parseSufficient(parsed.sufficient),
+     }
+   } catch {
+     // Se o Gemini não devolver JSON limpo por algum motivo, usa o texto cru como fallback nas duas versões
+     return {
+       pt: rawText || "Não foi possível gerar um guia para esta conquista.",
+       en: rawText || "Could not generate a guide for this achievement.",
++      sufficient: true,
+     }
+   }
+ }
+\ No newline at end of file

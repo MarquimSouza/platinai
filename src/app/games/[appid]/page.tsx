@@ -8,7 +8,7 @@ import { useLanguage } from "@/app/language-provider"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { LanguageToggle } from "@/components/LanguageToggle"
 
-type GuideData = { pt: string; en: string | null; videoUrl: string | null }
+type GuideData = { pt: string; en: string | null; videoUrl: string | null; insufficient?: boolean }
 
 type Achievement = {
   apiname: string
@@ -112,11 +112,50 @@ export default function GameAchievementsPage() {
 
       setDynamicGuides((prev) => ({
         ...prev,
-        [a.apiname]: { pt: json.guideTextPt, en: json.guideTextEn, videoUrl: json.videoUrl },
+        [a.apiname]: {
+          pt: json.guideTextPt,
+          en: json.guideTextEn,
+          videoUrl: json.videoUrl,
+          insufficient: json.insufficientContent ?? false,
+        },
       }))
     } catch (err: any) {
       setGenerateErrors((prev) => ({ ...prev, [a.apiname]: err.message }))
     } finally {
+      setGenerating((prev) => ({ ...prev, [a.apiname]: false }))
+    }
+  }
+
+  async function handleRegenerateGuide(a: Achievement) {
+    setGenerating((prev) => ({ ...prev, [a.apiname]: true }))
+    setGenerateErrors((prev) => ({ ...prev, [a.apiname]: "" }))
+
+    try {
+      const deleteRes = await fetch("/api/guides/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appid, apiname: a.apiname }),
+      })
+
+      if (!deleteRes.ok) {
+        const deleteJson = await deleteRes.json()
+        throw new Error(deleteJson.error ?? "Erro ao apagar guia antigo")
+      }
+
+      setSavedGuides((prev) => {
+        const updated = { ...prev }
+        delete updated[a.apiname]
+        return updated
+      })
+      setDynamicGuides((prev) => {
+        const updated = { ...prev }
+        delete updated[a.apiname]
+        return updated
+      })
+
+      await handleGenerateGuide(a)
+    } catch (err: any) {
+      setGenerateErrors((prev) => ({ ...prev, [a.apiname]: err.message }))
       setGenerating((prev) => ({ ...prev, [a.apiname]: false }))
     }
   }
@@ -324,8 +363,37 @@ export default function GameAchievementsPage() {
                 </div>
 
                 {!a.unlocked && guideText && (
-                  <div className="mt-3 p-3 bg-[var(--bg-base)] rounded-md text-sm leading-relaxed">
-                    💡 <strong>{t.hintLabel}</strong> {guideText}
+                  <div
+                    className={
+                      guideData?.insufficient
+                        ? "mt-3 p-3 rounded-md text-sm leading-relaxed border border-dashed border-[var(--border-subtle)] text-[var(--text-secondary)]"
+                        : "mt-3 p-3 bg-[var(--bg-base)] rounded-md text-sm leading-relaxed"
+                    }
+                  >
+                    {guideData?.insufficient ? "ℹ️" : "💡"}{" "}
+                    <strong>{guideData?.insufficient ? t.insufficientLabel : t.hintLabel}</strong>{" "}
+                    {guideText}
+                    {guideData?.insufficient ? (
+                      <div className="mt-2">
+                        <button
+                          onClick={() => handleGenerateGuide(a)}
+                          disabled={isGenerating}
+                          className="text-sm bg-[var(--bg-surface-hover)] hover:bg-[#2a2e38] disabled:opacity-50 transition-colors px-3 py-1.5 rounded-md cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          {isGenerating ? t.generatingHint : t.tryAgain}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-2">
+                        <button
+                          onClick={() => handleRegenerateGuide(a)}
+                          disabled={isGenerating}
+                          className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isGenerating ? t.generatingHint : t.regenerateHint}
+                        </button>
+                      </div>
+                    )}
                     {guideData?.videoUrl && (
                       <div className="mt-2">
                         <div className="flex items-center gap-3">

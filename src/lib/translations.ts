@@ -26,6 +26,9 @@ export const translations = {
     watchOnYoutube: "▶ Ver vídeo no YouTube",
     showPlayer: "🎬 Assistir aqui",
     hidePlayer: "✕ Fechar player",
+    insufficientLabel: "Aviso:",
+    tryAgain: "🔄 Tentar de novo",
+    regenerateHint: "🔄 Regenerar dica",
     error: "Erro:",
     rarity: {
       common: "Comum",
@@ -62,6 +65,9 @@ export const translations = {
     watchOnYoutube: "▶ Watch on YouTube",
     showPlayer: "🎬 Watch here",
     hidePlayer: "✕ Close player",
+    insufficientLabel: "Notice:",
+    tryAgain: "🔄 Try again",
+    regenerateHint: "🔄 Regenerate hint",
     error: "Error:",
     rarity: {
       common: "Common",

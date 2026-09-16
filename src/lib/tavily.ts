@@ -1,4 +1,12 @@
-export async function searchAchievementGuide(query: string): Promise<string> {
+export type GuideSearchResult = {
+  text: string
+  hasEnoughContent: boolean
+}
+
+// Valor inicial, ajustável conforme mais testes (mesmo espírito do MAX_DURATION_SECONDS abaixo)
+const MIN_CONTENT_LENGTH = 300
+
+export async function searchAchievementGuide(query: string): Promise<GuideSearchResult> {
   const apiKey = process.env.TAVILY_API_KEY
 
   const res = await fetch("https://api.tavily.com/search", {
@@ -21,12 +29,21 @@ export async function searchAchievementGuide(query: string): Promise<string> {
   }
 
   const data = await res.json()
+  const results = data.results ?? []
 
-  const combined = (data.results ?? [])
+  const combined = results
     .map((r: any) => `Fonte: ${r.url}\n${r.content}`)
     .join("\n\n---\n\n")
 
-  return combined || "Nenhum resultado encontrado."
+  const totalContentLength = results.reduce(
+    (sum: number, r: any) => sum + (r.content?.length ?? 0),
+    0
+  )
+
+  return {
+    text: combined || "Nenhum resultado encontrado.",
+    hasEnoughContent: results.length > 0 && totalContentLength >= MIN_CONTENT_LENGTH,
+  }
 }
 
 function parseISO8601Duration(iso: string): number {

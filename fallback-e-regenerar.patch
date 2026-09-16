@@ -1,0 +1,214 @@
+diff --git a/src/app/api/guides/generate/route.ts b/src/app/api/guides/generate/route.ts
+index d5e96df..b1ac0b2 100644
+--- a/src/app/api/guides/generate/route.ts
++++ b/src/app/api/guides/generate/route.ts
+@@ -53,16 +53,33 @@ export async function POST(req: NextRequest) {
+ 
+     const videoQuery = `${gameName} ${achievementName} achievement`
+ 
+-    const [searchContext, videoUrl] = await Promise.all([
++    const [searchResult, videoUrl] = await Promise.all([
+       searchAchievementGuide(searchQuery),
+       searchYoutubeVideo(videoQuery, achievementName),
+     ])
+ 
++    if (!searchResult.hasEnoughContent) {
++      // Conta a busca no rate limit (Tavily/YouTube já foram consultados),
++      // mas NÃO salva no Supabase — assim o usuário pode tentar de novo depois,
++      // sem depender do botão de regenerar (que não existe mais).
++      await supabaseAdmin.from("generation_log").insert({ ip })
++
++      return NextResponse.json({
++        guideTextPt:
++          "Não encontramos conteúdo suficiente na web para gerar uma dica confiável para esta conquista ainda. Tente novamente mais tarde — pode surgir conteúdo novo.",
++        guideTextEn:
++          "We couldn't find enough web content to generate a reliable hint for this achievement yet. Try again later — new content may show up.",
++        videoUrl,
++        cached: false,
++        insufficientContent: true,
++      })
++    }
++
+     const { pt, en } = await generateAchievementGuide({
+       gameName,
+       achievementName,
+       achievementDescription: description,
+-      searchContext,
++      searchContext: searchResult.text,
+     })
+ 
+     await supabaseAdmin.from("achievement_guides").insert({
+diff --git a/src/app/games/[appid]/page.tsx b/src/app/games/[appid]/page.tsx
+index 192754e..773b671 100644
+--- a/src/app/games/[appid]/page.tsx
++++ b/src/app/games/[appid]/page.tsx
+@@ -8,7 +8,7 @@ import { useLanguage } from "@/app/language-provider"
+ import { ThemeToggle } from "@/components/ThemeToggle"
+ import { LanguageToggle } from "@/components/LanguageToggle"
+ 
+-type GuideData = { pt: string; en: string | null; videoUrl: string | null }
++type GuideData = { pt: string; en: string | null; videoUrl: string | null; insufficient?: boolean }
+ 
+ type Achievement = {
+   apiname: string
+@@ -112,7 +112,12 @@ export default function GameAchievementsPage() {
+ 
+       setDynamicGuides((prev) => ({
+         ...prev,
+-        [a.apiname]: { pt: json.guideTextPt, en: json.guideTextEn, videoUrl: json.videoUrl },
++        [a.apiname]: {
++          pt: json.guideTextPt,
++          en: json.guideTextEn,
++          videoUrl: json.videoUrl,
++          insufficient: json.insufficientContent ?? false,
++        },
+       }))
+     } catch (err: any) {
+       setGenerateErrors((prev) => ({ ...prev, [a.apiname]: err.message }))
+@@ -121,6 +126,40 @@ export default function GameAchievementsPage() {
+     }
+   }
+ 
++  async function handleRegenerateGuide(a: Achievement) {
++    setGenerating((prev) => ({ ...prev, [a.apiname]: true }))
++    setGenerateErrors((prev) => ({ ...prev, [a.apiname]: "" }))
++
++    try {
++      const deleteRes = await fetch("/api/guides/delete", {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({ appid, apiname: a.apiname }),
++      })
++
++      if (!deleteRes.ok) {
++        const deleteJson = await deleteRes.json()
++        throw new Error(deleteJson.error ?? "Erro ao apagar guia antigo")
++      }
++
++      setSavedGuides((prev) => {
++        const updated = { ...prev }
++        delete updated[a.apiname]
++        return updated
++      })
++      setDynamicGuides((prev) => {
++        const updated = { ...prev }
++        delete updated[a.apiname]
++        return updated
++      })
++
++      await handleGenerateGuide(a)
++    } catch (err: any) {
++      setGenerateErrors((prev) => ({ ...prev, [a.apiname]: err.message }))
++      setGenerating((prev) => ({ ...prev, [a.apiname]: false }))
++    }
++  }
++
+   const visibleAchievements = useMemo(() => {
+     if (!data) return []
+ 
+@@ -324,8 +363,37 @@ export default function GameAchievementsPage() {
+                 </div>
+ 
+                 {!a.unlocked && guideText && (
+-                  <div className="mt-3 p-3 bg-[var(--bg-base)] rounded-md text-sm leading-relaxed">
+-                    💡 <strong>{t.hintLabel}</strong> {guideText}
++                  <div
++                    className={
++                      guideData?.insufficient
++                        ? "mt-3 p-3 rounded-md text-sm leading-relaxed border border-dashed border-[var(--border-subtle)] text-[var(--text-secondary)]"
++                        : "mt-3 p-3 bg-[var(--bg-base)] rounded-md text-sm leading-relaxed"
++                    }
++                  >
++                    {guideData?.insufficient ? "ℹ️" : "💡"}{" "}
++                    <strong>{guideData?.insufficient ? t.insufficientLabel : t.hintLabel}</strong>{" "}
++                    {guideText}
++                    {guideData?.insufficient ? (
++                      <div className="mt-2">
++                        <button
++                          onClick={() => handleGenerateGuide(a)}
++                          disabled={isGenerating}
++                          className="text-sm bg-[var(--bg-surface-hover)] hover:bg-[#2a2e38] disabled:opacity-50 transition-colors px-3 py-1.5 rounded-md cursor-pointer disabled:cursor-not-allowed"
++                        >
++                          {isGenerating ? t.generatingHint : t.tryAgain}
++                        </button>
++                      </div>
++                    ) : (
++                      <div className="mt-2">
++                        <button
++                          onClick={() => handleRegenerateGuide(a)}
++                          disabled={isGenerating}
++                          className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
++                        >
++                          {isGenerating ? t.generatingHint : t.regenerateHint}
++                        </button>
++                      </div>
++                    )}
+                     {guideData?.videoUrl && (
+                       <div className="mt-2">
+                         <div className="flex items-center gap-3">
+diff --git a/src/lib/tavily.ts b/src/lib/tavily.ts
+index 11c8fed..6695d48 100644
+--- a/src/lib/tavily.ts
++++ b/src/lib/tavily.ts
+@@ -1,4 +1,12 @@
+-export async function searchAchievementGuide(query: string): Promise<string> {
++export type GuideSearchResult = {
++  text: string
++  hasEnoughContent: boolean
++}
++
++// Valor inicial, ajustável conforme mais testes (mesmo espírito do MAX_DURATION_SECONDS abaixo)
++const MIN_CONTENT_LENGTH = 300
++
++export async function searchAchievementGuide(query: string): Promise<GuideSearchResult> {
+   const apiKey = process.env.TAVILY_API_KEY
+ 
+   const res = await fetch("https://api.tavily.com/search", {
+@@ -21,12 +29,21 @@ export async function searchAchievementGuide(query: string): Promise<string> {
+   }
+ 
+   const data = await res.json()
++  const results = data.results ?? []
+ 
+-  const combined = (data.results ?? [])
++  const combined = results
+     .map((r: any) => `Fonte: ${r.url}\n${r.content}`)
+     .join("\n\n---\n\n")
+ 
+-  return combined || "Nenhum resultado encontrado."
++  const totalContentLength = results.reduce(
++    (sum: number, r: any) => sum + (r.content?.length ?? 0),
++    0
++  )
++
++  return {
++    text: combined || "Nenhum resultado encontrado.",
++    hasEnoughContent: results.length > 0 && totalContentLength >= MIN_CONTENT_LENGTH,
++  }
+ }
+ 
+ function parseISO8601Duration(iso: string): number {
+diff --git a/src/lib/translations.ts b/src/lib/translations.ts
+index 6729207..01a8c43 100644
+--- a/src/lib/translations.ts
++++ b/src/lib/translations.ts
+@@ -26,6 +26,9 @@ export const translations = {
+     watchOnYoutube: "▶ Ver vídeo no YouTube",
+     showPlayer: "🎬 Assistir aqui",
+     hidePlayer: "✕ Fechar player",
++    insufficientLabel: "Aviso:",
++    tryAgain: "🔄 Tentar de novo",
++    regenerateHint: "🔄 Regenerar dica",
+     error: "Erro:",
+     rarity: {
+       common: "Comum",
+@@ -62,6 +65,9 @@ export const translations = {
+     watchOnYoutube: "▶ Watch on YouTube",
+     showPlayer: "🎬 Watch here",
+     hidePlayer: "✕ Close player",
++    insufficientLabel: "Notice:",
++    tryAgain: "🔄 Try again",
++    regenerateHint: "🔄 Regenerate hint",
+     error: "Error:",
+     rarity: {
+       common: "Common",

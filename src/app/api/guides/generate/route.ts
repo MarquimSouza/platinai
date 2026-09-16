@@ -53,16 +53,33 @@ export async function POST(req: NextRequest) {
 
     const videoQuery = `${gameName} ${achievementName} achievement`
 
-    const [searchContext, videoUrl] = await Promise.all([
+    const [searchResult, videoUrl] = await Promise.all([
       searchAchievementGuide(searchQuery),
       searchYoutubeVideo(videoQuery, achievementName),
     ])
+
+    if (!searchResult.hasEnoughContent) {
+      // Conta a busca no rate limit (Tavily/YouTube já foram consultados),
+      // mas NÃO salva no Supabase — assim o usuário pode tentar de novo depois,
+      // sem depender do botão de regenerar (que não existe mais).
+      await supabaseAdmin.from("generation_log").insert({ ip })
+
+      return NextResponse.json({
+        guideTextPt:
+          "Não encontramos conteúdo suficiente na web para gerar uma dica confiável para esta conquista ainda. Tente novamente mais tarde — pode surgir conteúdo novo.",
+        guideTextEn:
+          "We couldn't find enough web content to generate a reliable hint for this achievement yet. Try again later — new content may show up.",
+        videoUrl,
+        cached: false,
+        insufficientContent: true,
+      })
+    }
 
     const { pt, en } = await generateAchievementGuide({
       gameName,
       achievementName,
       achievementDescription: description,
-      searchContext,
+      searchContext: searchResult.text,
     })
 
     await supabaseAdmin.from("achievement_guides").insert({
