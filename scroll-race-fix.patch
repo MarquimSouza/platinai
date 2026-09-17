@@ -1,0 +1,58 @@
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index ab1e49b..43a7053 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -88,15 +88,25 @@ export default function Home() {
+   }, [games, search, sortBy])
+ 
+   // Restaura a posição de scroll salva só depois que a lista de jogos já renderizou
+-  // (senão a altura da página ainda muda e a posição fica errada)
++  // (senão a altura da página ainda muda e a posição fica errada). Reforça por vários
++  // frames em seguida, porque um ajuste tardio de layout (imagem de capa carregando,
++  // fonte trocando, scroll anchoring do navegador) pode empurrar a posição de volta
++  // depois de uma única tentativa — daí o bug ser intermitente.
+   useEffect(() => {
+     if (restoredScroll || loading || games.length === 0) return
+     try {
+       const saved = sessionStorage.getItem(LIBRARY_SCROLL_KEY)
+       if (saved) {
+-        requestAnimationFrame(() => {
+-          window.scrollTo(0, parseInt(saved, 10))
+-        })
++        const target = parseInt(saved, 10)
++        let frame = 0
++        const reapply = () => {
++          window.scrollTo(0, target)
++          frame += 1
++          if (frame < 15) {
++            requestAnimationFrame(reapply)
++          }
++        }
++        requestAnimationFrame(reapply)
+       }
+     } catch {}
+     setRestoredScroll(true)
+@@ -232,6 +242,11 @@ export default function Home() {
+             <Link
+               key={game.appid}
+               href={`/games/${game.appid}?name=${encodeURIComponent(game.name)}`}
++              onClick={() => {
++                try {
++                  sessionStorage.setItem(LIBRARY_SCROLL_KEY, String(window.scrollY))
++                } catch {}
++              }}
+               className="group bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] transition-colors rounded-lg overflow-hidden border border-[var(--border-subtle)] flex flex-col cursor-pointer"
+               >
+               <div className="aspect-[2/3] bg-[var(--bg-base)] overflow-hidden">
+@@ -249,6 +264,11 @@ export default function Home() {
+             <li key={game.appid}>
+               <Link
+                 href={`/games/${game.appid}?name=${encodeURIComponent(game.name)}`}
++                onClick={() => {
++                  try {
++                    sessionStorage.setItem(LIBRARY_SCROLL_KEY, String(window.scrollY))
++                  } catch {}
++                }}
+                 className="flex items-center justify-between bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] transition-colors rounded-lg px-4 py-3 border border-[var(--border-subtle)] cursor-pointer"
+                 >
+                 <span className="font-medium">{game.name}</span>
