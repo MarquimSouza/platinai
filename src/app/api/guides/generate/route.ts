@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { getAuthOptions } from "@/lib/auth"
 import { supabase, supabaseAdmin } from "@/lib/supabase"
 import { generateAchievementGuide } from "@/lib/gemini"
 import { searchAchievementGuide, searchYoutubeVideo } from "@/lib/tavily"
 import type { NextRequest } from "next/server"
 
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(getAuthOptions(req))
+  const steamId = (session?.user as any)?.steamId ?? null
+
   const body = await req.json()
   const { appid, apiname, gameName, achievementName, achievementDescription } = body
 
@@ -19,11 +24,16 @@ export async function POST(req: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
 
-    const { count } = await supabaseAdmin
+    // Por Steam ID quando logado (mais justo e difícil de burlar); IP como fallback
+    // pra requisições sem sessão (não deveria acontecer no fluxo normal, mas é defensivo).
+    let query = supabaseAdmin
       .from("generation_log")
       .select("*", { count: "exact", head: true })
-      .eq("ip", ip)
       .gte("created_at", oneHourAgo)
+
+    query = steamId ? query.eq("steam_id", steamId) : query.eq("ip", ip)
+
+    const { count } = await query
 
     if ((count ?? 0) >= 10) {
       return NextResponse.json(
@@ -67,7 +77,7 @@ export async function POST(req: NextRequest) {
       // Conta a busca no rate limit (Tavily/YouTube já foram consultados),
       // mas NÃO salva no Supabase — assim o usuário pode tentar de novo depois,
       // sem depender do botão de regenerar (que não existe mais).
-      await supabaseAdmin.from("generation_log").insert({ ip })
+      await supabaseAdmin.from("generation_log").insert({ ip, steam_id: steamId })
 
       return NextResponse.json({
         guideTextPt:
@@ -90,7 +100,7 @@ export async function POST(req: NextRequest) {
     // Mesmo com texto suficiente em tamanho (filtro do Tavily acima), o próprio Gemini pode achar
     // o conteúdo genérico/insuficiente para dar passos práticos — trata igual ao caso "sem conteúdo".
     if (!sufficient) {
-      await supabaseAdmin.from("generation_log").insert({ ip })
+      await supabaseAdmin.from("generation_log").insert({ ip, steam_id: steamId })
 
       return NextResponse.json({
         guideTextPt: pt,
@@ -111,7 +121,7 @@ export async function POST(req: NextRequest) {
       video_url: videoUrl,
     })
 
-    await supabaseAdmin.from("generation_log").insert({ ip })
+    await supabaseAdmin.from("generation_log").insert({ ip, steam_id: steamId })
 
     return NextResponse.json({ guideTextPt: pt, guideTextEn: en, videoUrl, cached: false })
   } catch (err: any) {
