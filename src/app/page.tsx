@@ -14,6 +14,9 @@ type Game = {
   playtime_forever: number
 }
 
+const LIBRARY_STATE_KEY = "platinai:library:state"
+const LIBRARY_SCROLL_KEY = "platinai:library:scroll"
+
 export default function Home() {
   const { data: session } = useSession()
   const { theme } = useTheme()
@@ -22,6 +25,45 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [sortBy, setSortBy] = useState<"default" | "alpha" | "alphaDesc">("default")
+  const [restoredScroll, setRestoredScroll] = useState(false)
+
+  // Restaura busca/ordenação/modo salvos ao montar (ex: voltar da tela de conquistas)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(LIBRARY_STATE_KEY)
+      if (raw) {
+        const saved = JSON.parse(raw)
+        if (saved.search) setSearch(saved.search)
+        if (saved.sortBy) setSortBy(saved.sortBy)
+        if (saved.viewMode) setViewMode(saved.viewMode)
+      }
+    } catch {}
+  }, [])
+
+  // Salva busca/ordenação/modo a cada mudança
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(LIBRARY_STATE_KEY, JSON.stringify({ search, sortBy, viewMode }))
+    } catch {}
+  }, [search, sortBy, viewMode])
+
+  // Salva a posição de scroll continuamente (throttle simples via rAF)
+  useEffect(() => {
+    let ticking = false
+    function handleScroll() {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        try {
+          sessionStorage.setItem(LIBRARY_SCROLL_KEY, String(window.scrollY))
+        } catch {}
+        ticking = false
+      })
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   useEffect(() => {
     if (session) {
@@ -35,9 +77,30 @@ export default function Home() {
 
   const visibleGames = useMemo(() => {
     const query = search.trim().toLowerCase()
-    if (!query) return games
-    return games.filter((g) => g.name.toLowerCase().includes(query))
-  }, [games, search])
+    const filtered = query ? games.filter((g) => g.name.toLowerCase().includes(query)) : games
+    if (sortBy === "alpha") {
+      return [...filtered].sort((a, b) => a.name.localeCompare(b.name))
+    }
+    if (sortBy === "alphaDesc") {
+      return [...filtered].sort((a, b) => b.name.localeCompare(a.name))
+    }
+    return filtered
+  }, [games, search, sortBy])
+
+  // Restaura a posição de scroll salva só depois que a lista de jogos já renderizou
+  // (senão a altura da página ainda muda e a posição fica errada)
+  useEffect(() => {
+    if (restoredScroll || loading || games.length === 0) return
+    try {
+      const saved = sessionStorage.getItem(LIBRARY_SCROLL_KEY)
+      if (saved) {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, parseInt(saved, 10))
+        })
+      }
+    } catch {}
+    setRestoredScroll(true)
+  }, [restoredScroll, loading, games])
 
   if (!session) {
     const wordmark = theme === "dark" ? "/logo_black.png" : "/logo_white.png"
@@ -81,29 +144,37 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-10 max-w-5xl mx-auto">
-      <header className="flex items-center justify-between mb-8">
-        <div>
-          <img
-            src={theme === "dark" ? "/logo_black.png" : "/logo_white.png"}
-            alt="Platinai"
-            className="w-48 h-auto"
-          />
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            {t.loggedAs(session.user?.name ?? "")}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <LanguageToggle />
-          <ThemeToggle />
+    <main className="min-h-screen">
+      <div className="sticky top-0 z-30 bg-[var(--bg-base)]/95 backdrop-blur border-b border-[var(--border-subtle)]">
+        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
           <button
-            onClick={() => signOut()}
-            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-            >
-            {t.signOut}
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="cursor-pointer"
+            aria-label={t.library}
+          >
+            <img
+              src={theme === "dark" ? "/logo_black.png" : "/logo_white.png"}
+              alt="Platinai"
+              className="w-32 h-auto"
+            />
           </button>
+          <div className="flex items-center gap-3">
+            <LanguageToggle />
+            <ThemeToggle />
+            <button
+              onClick={() => signOut()}
+              className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+              >
+              {t.signOut}
+            </button>
+          </div>
         </div>
-      </header>
+      </div>
+
+      <div className="px-6 py-10 max-w-5xl mx-auto">
+      <p className="text-sm text-[var(--text-secondary)] mt-1 mb-6">
+        {t.loggedAs(session.user?.name ?? "")}
+      </p>
 
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
@@ -122,6 +193,15 @@ export default function Home() {
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--gold)]"
         />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as "default" | "alpha" | "alphaDesc")}
+          className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm cursor-pointer focus:outline-none focus:border-[var(--gold)]"
+        >
+          <option value="default">{t.sortDefault}</option>
+          <option value="alpha">{t.sortAlpha}</option>
+          <option value="alphaDesc">{t.sortAlphaDesc}</option>
+        </select>
         <div className="flex bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
                     <button
             onClick={() => setViewMode("grid")}
@@ -178,6 +258,7 @@ export default function Home() {
           ))}
         </ul>
       )}
+      </div>
     </main>
   )
 }

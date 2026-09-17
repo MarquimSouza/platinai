@@ -52,7 +52,7 @@ export function GameCover({ appid, name }: GameCoverProps) {
   const currentSrc = fallbackUrl ?? sources[attempt]
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[var(--bg-surface-hover)]">
+    <div className="relative isolate w-full h-full overflow-hidden bg-[var(--bg-surface-hover)]">
       {/* Fundo desfocado, preenche todo o espaço */}
       <img
         src={currentSrc}

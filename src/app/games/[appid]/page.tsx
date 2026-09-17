@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useMemo, useState } from "react"
-import { useParams, useSearchParams } from "next/navigation"
+import { useParams, useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { achievementGuides } from "@/data/guides"
 import { getRarityTier } from "@/lib/rarity"
@@ -37,6 +37,7 @@ function getYoutubeVideoId(url: string): string {
 export default function GameAchievementsPage() {
   const params = useParams()
   const searchParamsUrl = useSearchParams()
+  const router = useRouter()
   const appid = params.appid as string
   const nameFromLibrary = searchParamsUrl.get("name")
   const { language, t } = useLanguage()
@@ -242,12 +243,12 @@ export default function GameAchievementsPage() {
     <main className="min-h-screen">
       <div className="sticky top-0 z-10 bg-[var(--bg-base)]/95 backdrop-blur border-b border-[var(--border-subtle)]">
         <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between">
-          <Link
-            href="/"
-            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors inline-flex items-center gap-1"
+          <button
+            onClick={() => router.push("/", { scroll: false })}
+            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors inline-flex items-center gap-1 cursor-pointer"
           >
             {t.backToLibrary}
-          </Link>
+          </button>
           <div className="flex items-center gap-2">
             <LanguageToggle />
             <ThemeToggle />
