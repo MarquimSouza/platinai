@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="./public/logo_white.png" alt="Platinai" width="420" />
+  <img src="./public/logo_black.png" alt="Platinai" width="420" />
 </p>
 
 <p align="center">
-  <a href="https://steam-trophies.vercel.app"><strong>🔗 Testar agora</strong></a>
+  <a href="https://platinai.vercel.app/"><strong>🔗 Testar agora</strong></a>
 </p>
 
 # Platinai
