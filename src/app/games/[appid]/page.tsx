@@ -5,6 +5,7 @@ import Link from "next/link"
 import { achievementGuides } from "@/data/guides"
 import { getRarityTier } from "@/lib/rarity"
 import { useLanguage } from "@/app/language-provider"
+import { useTheme } from "@/app/theme-provider"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { LanguageToggle } from "@/components/LanguageToggle"
 
@@ -41,6 +42,7 @@ export default function GameAchievementsPage() {
   const appid = params.appid as string
   const nameFromLibrary = searchParamsUrl.get("name")
   const { language, t } = useLanguage()
+  const { theme } = useTheme()
 
   const [data, setData] = useState<AchievementsResponse | null>(null)
   const [noAchievements, setNoAchievements] = useState(false)
@@ -242,12 +244,20 @@ export default function GameAchievementsPage() {
   return (
     <main className="min-h-screen">
       <div className="sticky top-0 z-10 bg-[var(--bg-base)]/95 backdrop-blur border-b border-[var(--border-subtle)]">
-        <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-3xl lg:max-w-4xl 2xl:max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <button
             onClick={() => router.push("/", { scroll: false })}
-            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors inline-flex items-center gap-1 cursor-pointer"
+            className="cursor-pointer inline-flex items-center gap-2"
+            aria-label={t.backToLibrary}
           >
-            {t.backToLibrary}
+            <img
+              src={theme === "dark" ? "/logo_app_white_icon.png" : "/logo_app_icon.png"}
+              alt=""
+              className="w-7 h-7"
+            />
+            <span className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+              {t.backToLibrary}
+            </span>
           </button>
           <div className="flex items-center gap-2">
             <LanguageToggle />
@@ -256,7 +266,7 @@ export default function GameAchievementsPage() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="max-w-3xl lg:max-w-4xl 2xl:max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">{data.gameName}</h1>
           {isPlatinum && (
@@ -284,30 +294,30 @@ export default function GameAchievementsPage() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
           <input
             type="text"
             placeholder={t.searchAchievement}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--gold)]"
+            className="w-full sm:flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--gold)]"
           />
-                  <div className="flex bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
-          <button
-            onClick={() => setViewMode("grid")}
-            className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "grid" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
-            aria-label="Grid view"
-          >
-            ▦
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "list" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
-            aria-label="List view"
-          >
-            ☰
-          </button>
-        </div>
+          <div className="flex bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg overflow-hidden self-start sm:self-auto">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "grid" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
+              aria-label="Grid view"
+            >
+              ▦
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "list" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
+              aria-label="List view"
+            >
+              ☰
+            </button>
+          </div>
         </div>
 
         {visibleAchievements.length === 0 && (
@@ -317,7 +327,7 @@ export default function GameAchievementsPage() {
         <ul
           className={
             viewMode === "grid"
-              ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
               : "flex flex-col gap-3"
           }
         >
@@ -344,8 +354,8 @@ export default function GameAchievementsPage() {
                   opacity: a.unlocked ? 0.55 : 1,
                 }}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium">
                       {a.name} {a.unlocked ? "✅" : ""}
                     </p>

@@ -156,7 +156,7 @@ export default function Home() {
   return (
     <main className="min-h-screen">
       <div className="sticky top-0 z-30 bg-[var(--bg-base)]/95 backdrop-blur border-b border-[var(--border-subtle)]">
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             className="cursor-pointer"
@@ -165,10 +165,10 @@ export default function Home() {
             <img
               src={theme === "dark" ? "/logo_black.png" : "/logo_white.png"}
               alt="Platinai"
-              className="w-32 h-auto"
+              className="w-24 sm:w-32 h-auto"
             />
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <LanguageToggle />
             <ThemeToggle />
             <button
@@ -181,7 +181,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="px-6 py-10 max-w-5xl mx-auto">
+      <div className="px-4 sm:px-6 py-10 max-w-5xl lg:max-w-6xl 2xl:max-w-7xl mx-auto">
       <p className="text-sm text-[var(--text-secondary)] mt-1 mb-6">
         {t.loggedAs(session.user?.name ?? "")}
       </p>
@@ -195,38 +195,40 @@ export default function Home() {
         </span>
       </div>
 
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <input
           type="text"
           placeholder={t.searchGame}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--gold)]"
+          className="w-full sm:flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[var(--gold)]"
         />
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as "default" | "alpha" | "alphaDesc")}
-          className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm cursor-pointer focus:outline-none focus:border-[var(--gold)]"
-        >
-          <option value="default">{t.sortDefault}</option>
-          <option value="alpha">{t.sortAlpha}</option>
-          <option value="alphaDesc">{t.sortAlphaDesc}</option>
-        </select>
-        <div className="flex bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
-                    <button
-            onClick={() => setViewMode("grid")}
-            className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "grid" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
-            aria-label="Grid view"
+        <div className="flex gap-3">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "default" | "alpha" | "alphaDesc")}
+            className="flex-1 sm:flex-none bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm cursor-pointer focus:outline-none focus:border-[var(--gold)]"
           >
-            ▦
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "list" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
-            aria-label="List view"
-          >
-            ☰
-          </button>
+            <option value="default">{t.sortDefault}</option>
+            <option value="alpha">{t.sortAlpha}</option>
+            <option value="alphaDesc">{t.sortAlphaDesc}</option>
+          </select>
+          <div className="flex flex-shrink-0 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "grid" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
+              aria-label="Grid view"
+            >
+              ▦
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-3 py-2 text-sm cursor-pointer ${viewMode === "list" ? "bg-[var(--bg-surface-hover)] text-[var(--gold)]" : "text-[var(--text-secondary)]"}`}
+              aria-label="List view"
+            >
+              ☰
+            </button>
+          </div>
         </div>
       </div>
 
@@ -237,7 +239,7 @@ export default function Home() {
       )}
 
       {viewMode === "grid" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {visibleGames.map((game) => (
             <Link
               key={game.appid}
