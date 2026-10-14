@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     const [searchResult, videoUrl] = await Promise.all([
       searchAchievementGuide(searchQuery),
-      searchYoutubeVideo(videoQuery, achievementName),
+      searchYoutubeVideo(videoQuery, achievementName, gameName),
     ])
 
     if (!searchResult.hasEnoughContent) {
