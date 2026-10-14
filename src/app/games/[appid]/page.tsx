@@ -110,6 +110,7 @@ export default function GameAchievementsPage() {
       const json = await res.json()
 
       if (!res.ok) {
+        if (json.code === "ai_busy") throw new Error(t.aiBusy)
         throw new Error(json.error ?? "Erro ao gerar guia")
       }
 

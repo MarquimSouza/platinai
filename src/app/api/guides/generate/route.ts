@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { getAuthOptions } from "@/lib/auth"
 import { supabase, supabaseAdmin } from "@/lib/supabase"
-import { generateAchievementGuide } from "@/lib/gemini"
+import { generateAchievementGuide, GeminiError } from "@/lib/gemini"
 import { searchAchievementGuide, searchYoutubeVideo } from "@/lib/tavily"
 import type { NextRequest } from "next/server"
 
@@ -125,6 +125,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ guideTextPt: pt, guideTextEn: en, videoUrl, cached: false })
   } catch (err: any) {
+    // IA sobrecarregada/no limite: código estável pro frontend traduzir, sem vazar o JSON cru da API
+    if (err instanceof GeminiError && err.isBusy) {
+      console.error(err.message)
+      return NextResponse.json({ error: "ai_busy", code: "ai_busy" }, { status: 503 })
+    }
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

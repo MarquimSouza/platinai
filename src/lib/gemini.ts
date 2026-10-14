@@ -11,6 +11,27 @@ type GuideResult = {
   sufficient: boolean
 }
 
+// Erro com o status HTTP da API, para a rota decidir a mensagem certa pro usuário.
+export class GeminiError extends Error {
+  status: number
+  constructor(status: number, body: string) {
+    super(`Erro na API do Gemini (${status}): ${body}`)
+    this.name = "GeminiError"
+    this.status = status
+  }
+  // 503 = sobrecarga do servidor, 429 = limite de taxa (RPM) — ambos temporários
+  get isBusy(): boolean {
+    return this.status === 503 || this.status === 429
+  }
+}
+
+// Retentativa só para erros temporários (503/429). Cada retentativa conta como
+// mais uma requisição no RPM do tier grátis, por isso poucas e com delay.
+const MAX_RETRIES = 1
+const RETRY_DELAY_MS = 2000
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 // O Gemini às vezes devolve "false" como string em vez de booleano puro —
 // essa função normaliza os dois formatos. Valor ausente/inesperado assume true
 // (comportamento anterior a essa checagem existir).
@@ -47,26 +68,33 @@ Responda ESTRITAMENTE em JSON válido, sem markdown, sem \`\`\`, no formato exat
 {"pt": "texto em português aqui", "en": "text in english here", "sufficient": true}
 (o campo "sufficient" é um booleano — true ou false SEM aspas, nunca como texto "true"/"false")`
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey!,
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-      }),
-    }
-  )
+  let res: Response | undefined
 
-  if (!res.ok) {
-    const errBody = await res.text()
-    throw new Error(`Erro na API do Gemini: ${errBody}`)
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey!,
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      }
+    )
+
+    if (res.ok) break
+
+    const err = new GeminiError(res.status, await res.text())
+    // Só vale tentar de novo se o erro é temporário e ainda restam tentativas
+    if (!err.isBusy || attempt === MAX_RETRIES) throw err
+
+    await sleep(RETRY_DELAY_MS)
   }
 
-  const data = await res.json()
+  const data = await res!.json()
   const rawText: string =
     data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? ""
 

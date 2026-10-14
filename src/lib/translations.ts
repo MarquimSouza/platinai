@@ -33,6 +33,7 @@ export const translations = {
     tryAgain: "🔄 Tentar de novo",
     regenerateHint: "🔄 Regenerar dica",
     error: "Erro:",
+    aiBusy: "O serviço de IA está ocupado no momento. Tente de novo em alguns instantes.",
     rarity: {
       common: "Comum",
       uncommon: "Incomum",
@@ -75,6 +76,7 @@ export const translations = {
     tryAgain: "🔄 Try again",
     regenerateHint: "🔄 Regenerate hint",
     error: "Error:",
+    aiBusy: "The AI service is busy right now. Please try again in a moment.",
     rarity: {
       common: "Common",
       uncommon: "Uncommon",
