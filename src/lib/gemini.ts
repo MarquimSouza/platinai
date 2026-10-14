@@ -1,3 +1,5 @@
+import { callGroq, isGroqConfigured } from "@/lib/groq"
+
 type GuideRequest = {
   gameName: string
   achievementName: string
@@ -27,6 +29,7 @@ export class GeminiError extends Error {
 
 // Retentativa só para erros temporários (503/429). Cada retentativa conta como
 // mais uma requisição no RPM do tier grátis, por isso poucas e com delay.
+// Se o fallback (Groq) está configurado, não retenta: cai direto nele, mais rápido e sem gastar RPM.
 const MAX_RETRIES = 1
 const RETRY_DELAY_MS = 2000
 
@@ -41,15 +44,14 @@ function parseSufficient(value: unknown): boolean {
   return true
 }
 
-export async function generateAchievementGuide({
+// Monta o prompt (compartilhado entre Gemini e Groq, pra os dois seguirem as mesmas regras)
+function buildPrompt({
   gameName,
   achievementName,
   achievementDescription,
   searchContext,
-}: GuideRequest): Promise<GuideResult> {
-  const apiKey = process.env.GEMINI_API_KEY
-
-  const prompt = `Você é um assistente especializado em guias de conquistas de jogos.
+}: GuideRequest): string {
+  return `Você é um assistente especializado em guias de conquistas de jogos.
 Abaixo estão trechos de páginas da web pesquisadas sobre esta conquista. Use SOMENTE essas informações (não invente nada que não esteja nelas).
 
 Jogo: ${gameName}
@@ -67,10 +69,14 @@ Além do texto, avalie você mesmo se o conteúdo pesquisado foi suficiente para
 Responda ESTRITAMENTE em JSON válido, sem markdown, sem \`\`\`, no formato exato:
 {"pt": "texto em português aqui", "en": "text in english here", "sufficient": true}
 (o campo "sufficient" é um booleano — true ou false SEM aspas, nunca como texto "true"/"false")`
+}
 
+// Chama o Gemini (com retry em 503/429) e devolve o texto cru da resposta
+async function callGemini(prompt: string, maxRetries: number): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY
   let res: Response | undefined
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`,
       {
@@ -89,15 +95,17 @@ Responda ESTRITAMENTE em JSON válido, sem markdown, sem \`\`\`, no formato exat
 
     const err = new GeminiError(res.status, await res.text())
     // Só vale tentar de novo se o erro é temporário e ainda restam tentativas
-    if (!err.isBusy || attempt === MAX_RETRIES) throw err
+    if (!err.isBusy || attempt === maxRetries) throw err
 
     await sleep(RETRY_DELAY_MS)
   }
 
   const data = await res!.json()
-  const rawText: string =
-    data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? ""
+  return data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? ""
+}
 
+// Gemini: tolerante — se não vier JSON limpo, usa o texto cru (comportamento original).
+function parseGeminiOutput(rawText: string): GuideResult {
   const cleaned = rawText.replace(/```json|```/g, "").trim()
 
   try {
@@ -114,6 +122,39 @@ Responda ESTRITAMENTE em JSON válido, sem markdown, sem \`\`\`, no formato exat
       pt: rawText || "Não foi possível gerar um guia para esta conquista.",
       en: rawText || "Could not generate a guide for this achievement.",
       sufficient: true,
+    }
+  }
+}
+
+// Groq: estrito — modelo menor, então NÃO salvamos texto cru no cache. Sem JSON válido
+// com pt e en preenchidos, lança erro (e o usuário vê "IA ocupada" em vez de lixo salvo).
+function parseGroqOutput(rawText: string): GuideResult {
+  const cleaned = rawText.replace(/```json|```/g, "").trim()
+  const parsed = JSON.parse(cleaned)
+  if (typeof parsed.pt !== "string" || !parsed.pt.trim() || typeof parsed.en !== "string" || !parsed.en.trim()) {
+    throw new Error("Groq devolveu JSON sem os campos pt/en")
+  }
+  return { pt: parsed.pt, en: parsed.en, sufficient: parseSufficient(parsed.sufficient) }
+}
+
+export async function generateAchievementGuide(req: GuideRequest): Promise<GuideResult> {
+  const prompt = buildPrompt(req)
+  const hasFallback = isGroqConfigured()
+
+  try {
+    return parseGeminiOutput(await callGemini(prompt, hasFallback ? 0 : MAX_RETRIES))
+  } catch (geminiErr) {
+    if (!hasFallback) throw geminiErr
+
+    console.warn("[ai] Gemini falhou, tentando Groq:", (geminiErr as Error).message)
+    try {
+      const result = parseGroqOutput(await callGroq(prompt))
+      console.log("[ai] guia gerado pelo Groq (fallback)")
+      return result
+    } catch (groqErr) {
+      console.error("[ai] Groq também falhou:", (groqErr as Error).message)
+      // Mantém o erro original do Gemini: a rota decide a mensagem pelo status dele (503/429 -> "IA ocupada")
+      throw geminiErr
     }
   }
 }
