@@ -90,7 +90,7 @@ export default function GameAchievementsPage() {
       .catch(() => setSavedGuides({}))
   }, [appid, language])
 
-  async function handleGenerateGuide(a: Achievement) {
+  async function handleGenerateGuide(a: Achievement, force = false) {
     setGenerating((prev) => ({ ...prev, [a.apiname]: true }))
     setGenerateErrors((prev) => ({ ...prev, [a.apiname]: "" }))
 
@@ -104,6 +104,7 @@ export default function GameAchievementsPage() {
           gameName: data?.gameName,
           achievementName: a.name,
           achievementDescription: a.description,
+          force,
         }),
       })
 
@@ -114,15 +115,21 @@ export default function GameAchievementsPage() {
         throw new Error(json.error ?? "Erro ao gerar guia")
       }
 
-      setDynamicGuides((prev) => ({
-        ...prev,
-        [a.apiname]: {
-          pt: json.guideTextPt,
-          en: json.guideTextEn,
-          videoUrl: json.videoUrl,
-          insufficient: json.insufficientContent ?? false,
-        },
-      }))
+      const newGuide: GuideData = {
+        pt: json.guideTextPt,
+        en: json.guideTextEn,
+        videoUrl: json.videoUrl,
+        insufficient: json.insufficientContent ?? false,
+      }
+
+      if (force) {
+        // Regenerar: se não achou nada melhor, mantém o guia que já estava na tela
+        if (newGuide.insufficient) throw new Error(t.regenerateKeptOld)
+        // savedGuides tem prioridade sobre dynamicGuides na exibição, então atualiza ele
+        setSavedGuides((prev) => ({ ...prev, [a.apiname]: newGuide }))
+      } else {
+        setDynamicGuides((prev) => ({ ...prev, [a.apiname]: newGuide }))
+      }
     } catch (err: any) {
       setGenerateErrors((prev) => ({ ...prev, [a.apiname]: err.message }))
     } finally {
@@ -130,38 +137,9 @@ export default function GameAchievementsPage() {
     }
   }
 
+  // Não apaga o guia antigo antes: gera o novo (force) e a rota só substitui se der certo
   async function handleRegenerateGuide(a: Achievement) {
-    setGenerating((prev) => ({ ...prev, [a.apiname]: true }))
-    setGenerateErrors((prev) => ({ ...prev, [a.apiname]: "" }))
-
-    try {
-      const deleteRes = await fetch("/api/guides/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appid, apiname: a.apiname }),
-      })
-
-      if (!deleteRes.ok) {
-        const deleteJson = await deleteRes.json()
-        throw new Error(deleteJson.error ?? "Erro ao apagar guia antigo")
-      }
-
-      setSavedGuides((prev) => {
-        const updated = { ...prev }
-        delete updated[a.apiname]
-        return updated
-      })
-      setDynamicGuides((prev) => {
-        const updated = { ...prev }
-        delete updated[a.apiname]
-        return updated
-      })
-
-      await handleGenerateGuide(a)
-    } catch (err: any) {
-      setGenerateErrors((prev) => ({ ...prev, [a.apiname]: err.message }))
-      setGenerating((prev) => ({ ...prev, [a.apiname]: false }))
-    }
+    await handleGenerateGuide(a, true)
   }
 
   const visibleAchievements = useMemo(() => {
@@ -405,6 +383,9 @@ export default function GameAchievementsPage() {
                           {isGenerating ? t.generatingHint : t.regenerateHint}
                         </button>
                       </div>
+                    )}
+                    {generateError && (
+                      <p className="text-red-400 text-xs mt-2">{generateError}</p>
                     )}
                     {guideData?.videoUrl && (
                       <div className="mt-2">

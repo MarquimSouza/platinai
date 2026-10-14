@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   const steamId = (session?.user as any)?.steamId ?? null
 
   const body = await req.json()
-  const { appid, apiname, gameName, achievementName, achievementDescription } = body
+  const { appid, apiname, gameName, achievementName, achievementDescription, force } = body
 
   if (!appid || !apiname || !gameName || !achievementName) {
     return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
     .eq("apiname", apiname)
     .maybeSingle()
 
-  if (existing) {
+  // force = "Regenerar dica": ignora o cache, mas o guia antigo só é substituído se o novo der certo
+  if (existing && !force) {
     return NextResponse.json({
       guideTextPt: existing.guide_text,
       guideTextEn: existing.guide_text_en,
@@ -119,15 +120,27 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    await supabaseAdmin.from("achievement_guides").insert({
-      appid: String(appid),
-      apiname,
+    const guideRow = {
       game_name: gameName,
       achievement_name: achievementName,
       guide_text: pt,
       guide_text_en: en,
       video_url: videoUrl,
-    })
+    }
+
+    if (existing) {
+      // Regeneração: UPDATE do guia existente (só chega aqui com o novo guia pronto e suficiente)
+      const { error: updateError } = await supabaseAdmin
+        .from("achievement_guides")
+        .update(guideRow)
+        .eq("appid", String(appid))
+        .eq("apiname", apiname)
+      if (updateError) console.error("[guides] falha ao atualizar guia:", updateError.message)
+    } else {
+      await supabaseAdmin
+        .from("achievement_guides")
+        .insert({ appid: String(appid), apiname, ...guideRow })
+    }
 
     await supabaseAdmin.from("generation_log").insert({ ip, steam_id: steamId })
 
