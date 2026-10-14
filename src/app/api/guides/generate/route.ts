@@ -4,6 +4,7 @@ import { getAuthOptions } from "@/lib/auth"
 import { supabase, supabaseAdmin } from "@/lib/supabase"
 import { generateAchievementGuide, GeminiError } from "@/lib/gemini"
 import { searchAchievementGuide, searchYoutubeVideo } from "@/lib/tavily"
+import { getEnglishAchievementInfo } from "@/lib/steam-schema"
 import type { NextRequest } from "next/server"
 
 export async function POST(req: NextRequest) {
@@ -62,15 +63,22 @@ export async function POST(req: NextRequest) {
   try {
     const description = achievementDescription ?? ""
 
-    const searchQuery = description
-      ? `how to ${achievementName}: ${description} - ${gameName} achievement guide`
-      : `how to unlock ${achievementName} - ${gameName} achievement guide`
+    // Buscas na web (texto e vídeo) usam o nome/descrição em inglês — o que o usuário vê
+    // pode estar em português, mas guias e vídeos quase sempre estão em inglês.
+    // Se a Steam não responder, cai pro nome original (comportamento anterior).
+    const english = await getEnglishAchievementInfo(appid, apiname)
+    const searchName = english?.name ?? achievementName
+    const searchDescription = english?.description || description
 
-    const videoQuery = `${gameName} ${achievementName} achievement`
+    const searchQuery = searchDescription
+      ? `how to ${searchName}: ${searchDescription} - ${gameName} achievement guide`
+      : `how to unlock ${searchName} - ${gameName} achievement guide`
+
+    const videoQuery = `${gameName} ${searchName} achievement`
 
     const [searchResult, videoUrl] = await Promise.all([
       searchAchievementGuide(searchQuery),
-      searchYoutubeVideo(videoQuery, achievementName, gameName),
+      searchYoutubeVideo(videoQuery, searchName, gameName),
     ])
 
     if (!searchResult.hasEnoughContent) {
