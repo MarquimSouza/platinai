@@ -38,6 +38,7 @@ export const translations = {
     globalCap: "O limite diário de dicas novas da comunidade foi atingido. Volte mais tarde — as dicas já geradas continuam disponíveis.",
     premiumOnly: "Regenerar dicas é um recurso do plano premium.",
     loginRequired: "Entre com sua conta Steam para gerar dicas.",
+    alreadyGenerating: "Já existe uma dica sendo gerada. Aguarde ela terminar para gerar outra.",
     aiBusy: "O serviço de IA está ocupado no momento. Tente de novo em alguns instantes.",
     rarity: {
       common: "Comum",
@@ -86,6 +87,7 @@ export const translations = {
     globalCap: "The community's daily limit for new hints has been reached. Come back later — hints already generated remain available.",
     premiumOnly: "Regenerating hints is a premium plan feature.",
     loginRequired: "Sign in with your Steam account to generate hints.",
+    alreadyGenerating: "A hint is already being generated. Wait for it to finish before generating another.",
     aiBusy: "The AI service is busy right now. Please try again in a moment.",
     rarity: {
       common: "Common",

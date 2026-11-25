@@ -6,6 +6,7 @@ import { generateAchievementGuide, GeminiError } from "@/lib/gemini"
 import { searchAchievementGuide, searchYoutubeVideo } from "@/lib/tavily"
 import { getEnglishAchievementInfo } from "@/lib/steam-schema"
 import { getSearchCache, saveTextCache, saveVideoCache } from "@/lib/search-cache"
+import { acquireGenerationLock, releaseGenerationLock } from "@/lib/generation-lock"
 import { isPremium, getPremiumSteamIds, FREE_DAILY_LIMIT, FREE_GLOBAL_DAILY_CAP, PREMIUM_HOURLY_SAFETY_LIMIT } from "@/lib/plans"
 import type { NextRequest } from "next/server"
 
@@ -110,123 +111,134 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "premium_only", code: "premium_only" }, { status: 403 })
   }
 
-  // Limites só em produção — localmente (npm run dev) não existe proxy repassando
-  // o IP real nem histórico de uso, e travaria o próprio dev testando.
-  if (process.env.NODE_ENV === "production") {
-    const limited = await checkGenerationLimits(String(steamId), premium)
-    if (limited) return limited
+  // Uma geração por vez por usuário: enquanto uma dica está sendo gerada, outra do mesmo usuário
+  // é recusada. A trava vem ANTES da contagem de limites e é sempre liberada no finally.
+  const gotLock = await acquireGenerationLock(String(steamId))
+  if (!gotLock) {
+    return NextResponse.json({ error: "already_generating", code: "already_generating" }, { status: 409 })
   }
 
   try {
-    const description = achievementDescription ?? ""
-
-    // Cache de buscas: reaproveita texto/vídeo já buscados (poupa Tavily e YouTube).
-    // "Regenerar dica" (force) ignora o cache de propósito, pra tentar achar conteúdo melhor.
-    const cached = force ? null : await getSearchCache(appid, apiname)
-    const needText = !cached?.text
-    const needVideo = !cached?.videoUrl
-
-    // Buscas na web (texto e vídeo) usam o nome/descrição em inglês — o que o usuário vê
-    // pode estar em português, mas guias e vídeos quase sempre estão em inglês.
-    // Se a Steam não responder, cai pro nome original (comportamento anterior).
-    // Só consulta a Steam se alguma busca for mesmo acontecer.
-    let searchName = achievementName
-    let searchDescription = description
-    if (needText || needVideo) {
-      const english = await getEnglishAchievementInfo(appid, apiname)
-      searchName = english?.name ?? achievementName
-      searchDescription = english?.description || description
+    // Limites só em produção — localmente (npm run dev) não existe proxy repassando
+    // o IP real nem histórico de uso, e travaria o próprio dev testando.
+    if (process.env.NODE_ENV === "production") {
+      const limited = await checkGenerationLimits(String(steamId), premium)
+      if (limited) return limited
     }
 
-    const searchQuery = searchDescription
-      ? `how to ${searchName}: ${searchDescription} - ${gameName} achievement guide`
-      : `how to unlock ${searchName} - ${gameName} achievement guide`
+    try {
+      const description = achievementDescription ?? ""
 
-    const videoQuery = `${gameName} ${searchName} achievement`
+      // Cache de buscas: reaproveita texto/vídeo já buscados (poupa Tavily e YouTube).
+      // "Regenerar dica" (force) ignora o cache de propósito, pra tentar achar conteúdo melhor.
+      const cached = force ? null : await getSearchCache(appid, apiname)
+      const needText = !cached?.text
+      const needVideo = !cached?.videoUrl
 
-    const [searchResult, videoUrl] = await Promise.all([
-      cached?.text ??
-        searchAchievementGuide(searchQuery).then(async (r) => {
-          await saveTextCache(appid, apiname, r) // guarda inclusive resultado raso (validade curta)
-          return r
-        }),
-      cached?.videoUrl ??
-        searchYoutubeVideo(videoQuery, searchName, gameName).then(async (v) => {
-          if (v) await saveVideoCache(appid, apiname, v) // só salva vídeo achado, nunca "não achou"
-          return v
-        }),
-    ])
+      // Buscas na web (texto e vídeo) usam o nome/descrição em inglês — o que o usuário vê
+      // pode estar em português, mas guias e vídeos quase sempre estão em inglês.
+      // Se a Steam não responder, cai pro nome original (comportamento anterior).
+      // Só consulta a Steam se alguma busca for mesmo acontecer.
+      let searchName = achievementName
+      let searchDescription = description
+      if (needText || needVideo) {
+        const english = await getEnglishAchievementInfo(appid, apiname)
+        searchName = english?.name ?? achievementName
+        searchDescription = english?.description || description
+      }
 
-    if (!searchResult.hasEnoughContent) {
-      // Conta a busca no rate limit (Tavily/YouTube já foram consultados),
-      // mas NÃO salva no Supabase — assim o usuário pode tentar de novo depois,
-      // sem depender do botão de regenerar (que não existe mais).
+      const searchQuery = searchDescription
+        ? `how to ${searchName}: ${searchDescription} - ${gameName} achievement guide`
+        : `how to unlock ${searchName} - ${gameName} achievement guide`
+
+      const videoQuery = `${gameName} ${searchName} achievement`
+
+      const [searchResult, videoUrl] = await Promise.all([
+        cached?.text ??
+          searchAchievementGuide(searchQuery).then(async (r) => {
+            await saveTextCache(appid, apiname, r) // guarda inclusive resultado raso (validade curta)
+            return r
+          }),
+        cached?.videoUrl ??
+          searchYoutubeVideo(videoQuery, searchName, gameName).then(async (v) => {
+            if (v) await saveVideoCache(appid, apiname, v) // só salva vídeo achado, nunca "não achou"
+            return v
+          }),
+      ])
+
+      if (!searchResult.hasEnoughContent) {
+        // Conta a busca no rate limit (Tavily/YouTube já foram consultados),
+        // mas NÃO salva no Supabase — assim o usuário pode tentar de novo depois,
+        // sem depender do botão de regenerar (que não existe mais).
+        await supabaseAdmin.from("generation_log").insert({ ip, steam_id: steamId })
+
+        return NextResponse.json({
+          guideTextPt:
+            "Não encontramos conteúdo suficiente na web para gerar uma dica confiável para esta conquista ainda. Tente novamente mais tarde — pode surgir conteúdo novo.",
+          guideTextEn:
+            "We couldn't find enough web content to generate a reliable hint for this achievement yet. Try again later — new content may show up.",
+          videoUrl,
+          cached: false,
+          insufficientContent: true,
+        })
+      }
+
+      const { pt, en, sufficient } = await generateAchievementGuide({
+        gameName,
+        achievementName,
+        achievementDescription: description,
+        searchContext: searchResult.text,
+      })
+
+      // Mesmo com texto suficiente em tamanho (filtro do Tavily acima), o próprio Gemini pode achar
+      // o conteúdo genérico/insuficiente para dar passos práticos — trata igual ao caso "sem conteúdo".
+      if (!sufficient) {
+        await supabaseAdmin.from("generation_log").insert({ ip, steam_id: steamId })
+
+        return NextResponse.json({
+          guideTextPt: pt,
+          guideTextEn: en,
+          videoUrl,
+          cached: false,
+          insufficientContent: true,
+        })
+      }
+
+      const guideRow = {
+        game_name: gameName,
+        achievement_name: achievementName,
+        guide_text: pt,
+        guide_text_en: en,
+        // se a busca nova não achou vídeo, mantém o que o guia já tinha (não apaga por falha de busca)
+        video_url: videoUrl ?? existing?.video_url ?? null,
+      }
+
+      if (existing) {
+        // Regeneração: UPDATE do guia existente (só chega aqui com o novo guia pronto e suficiente)
+        const { error: updateError } = await supabaseAdmin
+          .from("achievement_guides")
+          .update(guideRow)
+          .eq("appid", String(appid))
+          .eq("apiname", apiname)
+        if (updateError) console.error("[guides] falha ao atualizar guia:", updateError.message)
+      } else {
+        await supabaseAdmin
+          .from("achievement_guides")
+          .insert({ appid: String(appid), apiname, ...guideRow })
+      }
+
       await supabaseAdmin.from("generation_log").insert({ ip, steam_id: steamId })
 
-      return NextResponse.json({
-        guideTextPt:
-          "Não encontramos conteúdo suficiente na web para gerar uma dica confiável para esta conquista ainda. Tente novamente mais tarde — pode surgir conteúdo novo.",
-        guideTextEn:
-          "We couldn't find enough web content to generate a reliable hint for this achievement yet. Try again later — new content may show up.",
-        videoUrl,
-        cached: false,
-        insufficientContent: true,
-      })
+      return NextResponse.json({ guideTextPt: pt, guideTextEn: en, videoUrl, cached: false })
+    } catch (err: any) {
+      // IA sobrecarregada/no limite: código estável pro frontend traduzir, sem vazar o JSON cru da API
+      if (err instanceof GeminiError && err.isBusy) {
+        console.error(err.message)
+        return NextResponse.json({ error: "ai_busy", code: "ai_busy" }, { status: 503 })
+      }
+      return NextResponse.json({ error: err.message }, { status: 500 })
     }
-
-    const { pt, en, sufficient } = await generateAchievementGuide({
-      gameName,
-      achievementName,
-      achievementDescription: description,
-      searchContext: searchResult.text,
-    })
-
-    // Mesmo com texto suficiente em tamanho (filtro do Tavily acima), o próprio Gemini pode achar
-    // o conteúdo genérico/insuficiente para dar passos práticos — trata igual ao caso "sem conteúdo".
-    if (!sufficient) {
-      await supabaseAdmin.from("generation_log").insert({ ip, steam_id: steamId })
-
-      return NextResponse.json({
-        guideTextPt: pt,
-        guideTextEn: en,
-        videoUrl,
-        cached: false,
-        insufficientContent: true,
-      })
-    }
-
-    const guideRow = {
-      game_name: gameName,
-      achievement_name: achievementName,
-      guide_text: pt,
-      guide_text_en: en,
-      // se a busca nova não achou vídeo, mantém o que o guia já tinha (não apaga por falha de busca)
-      video_url: videoUrl ?? existing?.video_url ?? null,
-    }
-
-    if (existing) {
-      // Regeneração: UPDATE do guia existente (só chega aqui com o novo guia pronto e suficiente)
-      const { error: updateError } = await supabaseAdmin
-        .from("achievement_guides")
-        .update(guideRow)
-        .eq("appid", String(appid))
-        .eq("apiname", apiname)
-      if (updateError) console.error("[guides] falha ao atualizar guia:", updateError.message)
-    } else {
-      await supabaseAdmin
-        .from("achievement_guides")
-        .insert({ appid: String(appid), apiname, ...guideRow })
-    }
-
-    await supabaseAdmin.from("generation_log").insert({ ip, steam_id: steamId })
-
-    return NextResponse.json({ guideTextPt: pt, guideTextEn: en, videoUrl, cached: false })
-  } catch (err: any) {
-    // IA sobrecarregada/no limite: código estável pro frontend traduzir, sem vazar o JSON cru da API
-    if (err instanceof GeminiError && err.isBusy) {
-      console.error(err.message)
-      return NextResponse.json({ error: "ai_busy", code: "ai_busy" }, { status: 503 })
-    }
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } finally {
+    await releaseGenerationLock(String(steamId))
   }
 }

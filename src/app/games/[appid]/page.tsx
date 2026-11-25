@@ -56,6 +56,8 @@ export default function GameAchievementsPage() {
   const [savedGuides, setSavedGuides] = useState<Record<string, GuideData>>({})
   const [dynamicGuides, setDynamicGuides] = useState<Record<string, GuideData>>({})
   const [generating, setGenerating] = useState<Record<string, boolean>>({})
+  // só uma geração por vez (o servidor também recusa): evita clicar em várias conquistas ao mesmo tempo
+  const anyGenerating = Object.values(generating).some(Boolean)
   const [generateErrors, setGenerateErrors] = useState<Record<string, string>>({})
   const [expandedVideo, setExpandedVideo] = useState<Record<string, boolean>>({})
 
@@ -120,6 +122,7 @@ export default function GameAchievementsPage() {
           global_cap: t.globalCap,
           premium_only: t.premiumOnly,
           login_required: t.loginRequired,
+          already_generating: t.alreadyGenerating,
         }
         if (codeMessages[json.code]) throw new Error(codeMessages[json.code])
         throw new Error(json.error ?? "Erro ao gerar guia")
@@ -377,7 +380,7 @@ export default function GameAchievementsPage() {
                       <div className="mt-2">
                         <button
                           onClick={() => handleGenerateGuide(a)}
-                          disabled={isGenerating}
+                          disabled={isGenerating || anyGenerating}
                           className="text-sm bg-[var(--bg-surface-hover)] hover:bg-[#2a2e38] disabled:opacity-50 transition-colors px-3 py-1.5 rounded-md cursor-pointer disabled:cursor-not-allowed"
                         >
                           {isGenerating ? t.generatingHint : t.tryAgain}
@@ -387,7 +390,7 @@ export default function GameAchievementsPage() {
                       <div className="mt-2">
                         <button
                           onClick={() => handleRegenerateGuide(a)}
-                          disabled={isGenerating}
+                          disabled={isGenerating || anyGenerating}
                           className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isGenerating ? t.generatingHint : t.regenerateHint}
@@ -441,7 +444,7 @@ export default function GameAchievementsPage() {
                   <div className="mt-3">
                     <button
                       onClick={() => handleGenerateGuide(a)}
-                      disabled={isGenerating}
+                      disabled={isGenerating || anyGenerating}
                       className="text-sm bg-[var(--bg-surface-hover)] hover:bg-[#2a2e38] disabled:opacity-50 transition-colors px-3 py-1.5 rounded-md cursor-pointer disabled:cursor-not-allowed"
                       >
                       {isGenerating ? t.generatingHint : t.generateHint}
