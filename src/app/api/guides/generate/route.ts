@@ -5,6 +5,7 @@ import { supabase, supabaseAdmin } from "@/lib/supabase"
 import { generateAchievementGuide, GeminiError } from "@/lib/gemini"
 import { searchAchievementGuide, searchYoutubeVideo } from "@/lib/tavily"
 import { getEnglishAchievementInfo } from "@/lib/steam-schema"
+import { getSearchCache, saveTextCache, saveVideoCache } from "@/lib/search-cache"
 import type { NextRequest } from "next/server"
 
 export async function POST(req: NextRequest) {
@@ -64,12 +65,23 @@ export async function POST(req: NextRequest) {
   try {
     const description = achievementDescription ?? ""
 
+    // Cache de buscas: reaproveita texto/vídeo já buscados (poupa Tavily e YouTube).
+    // "Regenerar dica" (force) ignora o cache de propósito, pra tentar achar conteúdo melhor.
+    const cached = force ? null : await getSearchCache(appid, apiname)
+    const needText = !cached?.text
+    const needVideo = !cached?.videoUrl
+
     // Buscas na web (texto e vídeo) usam o nome/descrição em inglês — o que o usuário vê
     // pode estar em português, mas guias e vídeos quase sempre estão em inglês.
     // Se a Steam não responder, cai pro nome original (comportamento anterior).
-    const english = await getEnglishAchievementInfo(appid, apiname)
-    const searchName = english?.name ?? achievementName
-    const searchDescription = english?.description || description
+    // Só consulta a Steam se alguma busca for mesmo acontecer.
+    let searchName = achievementName
+    let searchDescription = description
+    if (needText || needVideo) {
+      const english = await getEnglishAchievementInfo(appid, apiname)
+      searchName = english?.name ?? achievementName
+      searchDescription = english?.description || description
+    }
 
     const searchQuery = searchDescription
       ? `how to ${searchName}: ${searchDescription} - ${gameName} achievement guide`
@@ -78,8 +90,16 @@ export async function POST(req: NextRequest) {
     const videoQuery = `${gameName} ${searchName} achievement`
 
     const [searchResult, videoUrl] = await Promise.all([
-      searchAchievementGuide(searchQuery),
-      searchYoutubeVideo(videoQuery, searchName, gameName),
+      cached?.text ??
+        searchAchievementGuide(searchQuery).then(async (r) => {
+          await saveTextCache(appid, apiname, r) // guarda inclusive resultado raso (validade curta)
+          return r
+        }),
+      cached?.videoUrl ??
+        searchYoutubeVideo(videoQuery, searchName, gameName).then(async (v) => {
+          if (v) await saveVideoCache(appid, apiname, v) // só salva vídeo achado, nunca "não achou"
+          return v
+        }),
     ])
 
     if (!searchResult.hasEnoughContent) {
@@ -125,7 +145,8 @@ export async function POST(req: NextRequest) {
       achievement_name: achievementName,
       guide_text: pt,
       guide_text_en: en,
-      video_url: videoUrl,
+      // se a busca nova não achou vídeo, mantém o que o guia já tinha (não apaga por falha de busca)
+      video_url: videoUrl ?? existing?.video_url ?? null,
     }
 
     if (existing) {
