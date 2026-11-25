@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { achievementGuides } from "@/data/guides"
 import { getRarityTier } from "@/lib/rarity"
 import { useLanguage } from "@/app/language-provider"
@@ -43,6 +44,8 @@ export default function GameAchievementsPage() {
   const nameFromLibrary = searchParamsUrl.get("name")
   const { language, t } = useLanguage()
   const { theme } = useTheme()
+  const { data: session } = useSession()
+  const isPremium = !!(session?.user as any)?.isPremium
 
   const [data, setData] = useState<AchievementsResponse | null>(null)
   const [noAchievements, setNoAchievements] = useState(false)
@@ -111,7 +114,14 @@ export default function GameAchievementsPage() {
       const json = await res.json()
 
       if (!res.ok) {
-        if (json.code === "ai_busy") throw new Error(t.aiBusy)
+        const codeMessages: Record<string, string> = {
+          ai_busy: t.aiBusy,
+          daily_limit: t.dailyLimit,
+          global_cap: t.globalCap,
+          premium_only: t.premiumOnly,
+          login_required: t.loginRequired,
+        }
+        if (codeMessages[json.code]) throw new Error(codeMessages[json.code])
         throw new Error(json.error ?? "Erro ao gerar guia")
       }
 
@@ -373,7 +383,7 @@ export default function GameAchievementsPage() {
                           {isGenerating ? t.generatingHint : t.tryAgain}
                         </button>
                       </div>
-                    ) : (
+                    ) : isPremium ? (
                       <div className="mt-2">
                         <button
                           onClick={() => handleRegenerateGuide(a)}
@@ -383,7 +393,7 @@ export default function GameAchievementsPage() {
                           {isGenerating ? t.generatingHint : t.regenerateHint}
                         </button>
                       </div>
-                    )}
+                    ) : null}
                     {generateError && (
                       <p className="text-red-400 text-xs mt-2">{generateError}</p>
                     )}

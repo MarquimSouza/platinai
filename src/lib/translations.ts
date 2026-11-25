@@ -34,6 +34,10 @@ export const translations = {
     regenerateHint: "🔄 Regenerar dica",
     error: "Erro:",
     regenerateKeptOld: "Não encontramos conteúdo melhor agora — mantivemos a dica anterior.",
+    dailyLimit: "Você atingiu o limite diário de dicas do plano gratuito. Volte mais tarde ou conheça o plano premium. As dicas já geradas continuam disponíveis.",
+    globalCap: "O limite diário de dicas novas da comunidade foi atingido. Volte mais tarde — as dicas já geradas continuam disponíveis.",
+    premiumOnly: "Regenerar dicas é um recurso do plano premium.",
+    loginRequired: "Entre com sua conta Steam para gerar dicas.",
     aiBusy: "O serviço de IA está ocupado no momento. Tente de novo em alguns instantes.",
     rarity: {
       common: "Comum",
@@ -78,6 +82,10 @@ export const translations = {
     regenerateHint: "🔄 Regenerate hint",
     error: "Error:",
     regenerateKeptOld: "We couldn't find better content right now — kept the previous hint.",
+    dailyLimit: "You've reached the free plan's daily hint limit. Come back later or check out the premium plan. Hints already generated remain available.",
+    globalCap: "The community's daily limit for new hints has been reached. Come back later — hints already generated remain available.",
+    premiumOnly: "Regenerating hints is a premium plan feature.",
+    loginRequired: "Sign in with your Steam account to generate hints.",
     aiBusy: "The AI service is busy right now. Please try again in a moment.",
     rarity: {
       common: "Common",

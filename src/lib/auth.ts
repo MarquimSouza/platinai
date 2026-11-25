@@ -1,6 +1,7 @@
 import Steam from "next-auth-steam"
 import type { NextAuthOptions } from "next-auth"
 import type { NextRequest } from "next/server"
+import { isPremium } from "@/lib/plans"
 
 export function getAuthOptions(req: NextRequest): NextAuthOptions {
   return {
@@ -20,6 +21,8 @@ export function getAuthOptions(req: NextRequest): NextAuthOptions {
       async session({ session, token }) {
         if (session.user) {
           (session.user as any).steamId = token.steamId
+          // só pra UI (esconder/mostrar recursos); a rota de geração revalida no servidor
+          ;(session.user as any).isPremium = isPremium(token.steamId as string | undefined)
         }
         return session
       },
