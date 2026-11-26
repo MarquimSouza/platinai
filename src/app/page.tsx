@@ -1,5 +1,5 @@
 "use client"
-import { signIn, signOut, useSession } from "next-auth/react"
+import { signOut, useSession } from "next-auth/react"
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useTheme } from "./theme-provider"
@@ -7,6 +7,7 @@ import { useLanguage } from "./language-provider"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { LanguageToggle } from "@/components/LanguageToggle"
 import { GameCover } from "@/components/GameCover"
+import { CommunityCatalog } from "@/components/CommunityCatalog"
 
 type Game = {
   appid: number
@@ -18,7 +19,7 @@ const LIBRARY_STATE_KEY = "platinai:library:state"
 const LIBRARY_SCROLL_KEY = "platinai:library:scroll"
 
 export default function Home() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const { theme } = useTheme()
   const { t } = useLanguage()
   const [games, setGames] = useState<Game[]>([])
@@ -112,46 +113,11 @@ export default function Home() {
     setRestoredScroll(true)
   }, [restoredScroll, loading, games])
 
-  if (!session) {
-    const wordmark = theme === "dark" ? "/logo_black.png" : "/logo_white.png"
-    const watermark = theme === "dark" ? "/logo_app_white.png" : "/logo_app.png"
-    const bgClass = theme === "dark" ? "bg-black" : "bg-white"
+  // Enquanto a sessão carrega, não mostra nada (evita piscar o catálogo pra quem está logado)
+  if (status === "loading") return <main className="min-h-screen" />
 
-    return (
-      <main
-        className={`relative min-h-screen w-full flex flex-col items-center justify-center gap-8 px-6 overflow-hidden ${bgClass}`}
-      >
-        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-          <LanguageToggle />
-          <ThemeToggle />
-        </div>
-
-        <img
-          src={watermark}
-          alt=""
-          aria-hidden="true"
-          className="absolute w-[800px] h-[800px] object-contain opacity-[0.04] pointer-events-none select-none"
-        />
-
-        <div className="relative z-10 flex flex-col items-center gap-8 w-full max-w-md">
-          <div className="text-center w-full">
-            <img
-              src={wordmark}
-              alt="Platinai"
-              className="w-full max-w-[360px] h-auto mx-auto"
-            />
-            <p className="mt-4 text-base text-[var(--text-secondary)]">{t.tagline}</p>
-          </div>
-          <button
-            onClick={() => signIn("steam")}
-            className="bg-[#1b2838] hover:bg-[#2a3f5a] transition-colors text-white px-8 py-4 rounded-lg font-medium text-lg cursor-pointer"
-            >
-            {t.signIn}
-          </button>
-        </div>
-      </main>
-    )
-  }
+  // Sem login: a tela inicial é o catálogo público de dicas da comunidade
+  if (!session) return <CommunityCatalog />
 
   return (
     <main className="min-h-screen">
@@ -182,9 +148,17 @@ export default function Home() {
       </div>
 
       <div className="px-4 sm:px-6 py-10 max-w-5xl lg:max-w-6xl 2xl:max-w-7xl mx-auto">
-      <p className="text-sm text-[var(--text-secondary)] mt-1 mb-6">
-        {t.loggedAs(session.user?.name ?? "")}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mt-1 mb-6">
+        <p className="text-sm text-[var(--text-secondary)]">
+          {t.loggedAs(session.user?.name ?? "")}
+        </p>
+        <Link
+          href="/comunidade"
+          className="text-sm text-[var(--gold)] hover:underline cursor-pointer"
+        >
+          {t.exploreCommunity} →
+        </Link>
+      </div>
 
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
