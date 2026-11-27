@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -44,7 +44,7 @@ export default function GameAchievementsPage() {
   const nameFromLibrary = searchParamsUrl.get("name")
   const { language, t } = useLanguage()
   const { theme } = useTheme()
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const isPremium = !!(session?.user as any)?.isPremium
 
   const [data, setData] = useState<AchievementsResponse | null>(null)
@@ -94,6 +94,43 @@ export default function GameAchievementsPage() {
       .then((json) => setSavedGuides(json))
       .catch(() => setSavedGuides({}))
   }, [appid, language])
+
+  // Saiu no meio de uma geração e voltou? O servidor continua gerando e grava o guia no banco:
+  // mostra "gerando…" até terminar e então recarrega as dicas salvas. Só verifica ao abrir o jogo.
+  const followingBackground = useRef<string | null>(null)
+  useEffect(() => {
+    if (sessionStatus !== "authenticated") return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    async function check() {
+      try {
+        const res = await fetch(`/api/guides/status?appid=${appid}`)
+        const json = res.ok ? await res.json() : { generating: null }
+        if (cancelled) return
+
+        if (json.generating) {
+          followingBackground.current = json.generating
+          setGenerating((prev) => ({ ...prev, [json.generating]: true }))
+          timer = setTimeout(check, 3000)
+        } else if (followingBackground.current) {
+          const finished = followingBackground.current
+          followingBackground.current = null
+          setGenerating((prev) => ({ ...prev, [finished]: false }))
+          fetch(`/api/guides?appid=${appid}`)
+            .then((r) => r.json())
+            .then((guides) => !cancelled && setSavedGuides(guides))
+            .catch(() => {})
+        }
+      } catch {}
+    }
+
+    check()
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [appid, sessionStatus])
 
   async function handleGenerateGuide(a: Achievement, force = false) {
     setGenerating((prev) => ({ ...prev, [a.apiname]: true }))

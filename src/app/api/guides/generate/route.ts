@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
 
   // Uma geração por vez por usuário: enquanto uma dica está sendo gerada, outra do mesmo usuário
   // é recusada. A trava vem ANTES da contagem de limites e é sempre liberada no finally.
-  const gotLock = await acquireGenerationLock(String(steamId))
+  const gotLock = await acquireGenerationLock(String(steamId), String(appid), apiname)
   if (!gotLock) {
     return NextResponse.json({ error: "already_generating", code: "already_generating" }, { status: 409 })
   }

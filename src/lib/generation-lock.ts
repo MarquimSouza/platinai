@@ -13,8 +13,14 @@ import { supabaseAdmin } from "@/lib/supabase"
 const STALE_LOCK_MS = 60_000
 
 // true = pode gerar (trava obtida); false = já existe geração em andamento desse usuário.
-// Se o banco falhar por outro motivo (ex: tabela não criada), deixa passar e registra no log.
-export async function acquireGenerationLock(steamId: string): Promise<boolean> {
+// Guarda também qual conquista está sendo gerada (appid/apiname), pra tela mostrar "gerando…"
+// se o usuário sair e voltar. Se as colunas ainda não existem (SQL não rodado), grava só o steam_id.
+// Se o banco falhar por outro motivo, deixa passar e registra no log.
+export async function acquireGenerationLock(
+  steamId: string,
+  appid?: string,
+  apiname?: string
+): Promise<boolean> {
   try {
     const staleBefore = new Date(Date.now() - STALE_LOCK_MS).toISOString()
     await supabaseAdmin
@@ -23,7 +29,15 @@ export async function acquireGenerationLock(steamId: string): Promise<boolean> {
       .eq("steam_id", steamId)
       .lt("locked_at", staleBefore)
 
-    const { error } = await supabaseAdmin.from("generation_locks").insert({ steam_id: steamId })
+    let { error } = await supabaseAdmin
+      .from("generation_locks")
+      .insert({ steam_id: steamId, appid: appid ?? null, apiname: apiname ?? null })
+
+    // coluna inexistente (PGRST204 / 42703): tenta de novo só com o steam_id
+    if (error && (error.code === "PGRST204" || error.code === "42703")) {
+      ;({ error } = await supabaseAdmin.from("generation_locks").insert({ steam_id: steamId }))
+    }
+
     if (!error) return true
 
     if (error.code === "23505") return false // violação de chave única: já tem geração em andamento
@@ -33,6 +47,25 @@ export async function acquireGenerationLock(steamId: string): Promise<boolean> {
   } catch (err) {
     console.warn("[lock] erro inesperado ao obter a trava, liberando mesmo assim:", err)
     return true
+  }
+}
+
+// Qual geração está em andamento para esse usuário (ou null). Trava velha não conta.
+export async function getActiveGeneration(
+  steamId: string
+): Promise<{ appid: string; apiname: string } | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("generation_locks")
+      .select("appid, apiname, locked_at")
+      .eq("steam_id", steamId)
+      .maybeSingle()
+
+    if (error || !data || !data.appid || !data.apiname) return null
+    if (Date.now() - new Date(data.locked_at).getTime() > STALE_LOCK_MS) return null
+    return { appid: String(data.appid), apiname: String(data.apiname) }
+  } catch {
+    return null
   }
 }
 
